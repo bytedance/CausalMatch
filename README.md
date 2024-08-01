@@ -54,8 +54,7 @@ pip install causalmatch==0.0.1
   * Simple PSM
 
   ```Python
-from bytedance.matching import matching, gen_test_data
-from bytedance.matching import matching 
+from causalmatch import matching,gen_test_data
 df = gen_test_data(n = 10000, c_ratio=0.5)
 df.head()
 

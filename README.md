@@ -4,16 +4,16 @@
 </a> CausalMatch: A Python Package for Propensity Score Matching and Coarsened Exact Matching 
 </h1>
 
-**Causal-Match** is a Python package that uses two classic matching methods, propensity score matching and coarsened exact matching, to estimate average treatment effects from observational data. 
-This package was designed and built as part of the [website] at ByteDance with the goal of combining state-of-the-art machine learning techniques with econometrics to bring automation to complex causal inference problems.
-
+**CausalMatch** is a Python package that implements two classic matching methods, propensity score matching (PSM) and coarsened exact matching (CEM), to estimate average treatment effects from observational data. 
+This package was designed and built as part of the ByteDance data science research program with the goal of combining state-of-the-art machine learning techniques with econometrics to bring automation to complex causal inference problems.
+Our toolkit possess the following features:
 * Implement classic matching techniques in the literature at the intersection of econometrics and machine learning
 * Maintain flexibility in modeling the propensity score model (via various machine learning classification models), while preserving the causal interpretation of the learned model and often offering valid confidence intervals
 * Use a unified API
 * Build on standard Python packages for Machine Learning and Data Analysis
 
 
-For information on use cases and background material on causal inference and heterogeneous treatment effects see our webpage at [webpage here]
+[//]: # (For information on use cases and background material on causal inference and heterogeneous treatment effects see our webpage at [webpage here])
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
@@ -25,13 +25,13 @@ For information on use cases and background material on causal inference and het
     - [Estimation Methods](#estimation-methods)
 - [References](#references)
 
-</details>
+
 
 # News
 
 If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
 
-**July 3, 2024:** Release v0.0.1, see release notes [here].
+**August 2, 2024:** Release 0.0.1.
 
 </details>
 
@@ -41,7 +41,7 @@ If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
 
 Install the latest release from [PyPI](https://pypi.org/project/econml/):
 ```
-pip install --user --prefix= bytedance.matching==1.0.3a
+pip install causalmatch==0.0.1
 ```
 
 
@@ -54,8 +54,8 @@ pip install --user --prefix= bytedance.matching==1.0.3a
   * Simple PSM
 
   ```Python
-  from bytedance.matching import matching, gen_test_data
-  from bytedance.matching import matching 
+from bytedance.matching import matching, gen_test_data
+from bytedance.matching import matching 
 df = gen_test_data(n = 10000, c_ratio=0.5)
 df.head()
 

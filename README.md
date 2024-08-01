@@ -141,7 +141,6 @@ match_obj_cem.cem(n_bins = 10, # number of bins for continuous x variables, cut 
 print(match_obj_cem.balance_check(include_discrete=True))
 print(match_obj_cem.ate())
   ```
-</details>
 
   * CEM with customized bin cut
 

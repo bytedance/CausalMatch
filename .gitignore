@@ -164,3 +164,6 @@ detection_tool.py
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 .DS_Store
+causalmatch/.DS_Store
+causalmatch/matching/.DS_Store
+causalmatch/matching/match_core/.DS_Store

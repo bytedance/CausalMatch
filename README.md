@@ -39,7 +39,7 @@ If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
 
 ## Installation
 
-Install the latest release from [PyPI](https://pypi.org/project/econml/):
+Install the latest release from [PyPI]:
 ```
 pip install causalmatch==0.0.1
 ```

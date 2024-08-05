@@ -55,6 +55,9 @@ pip install causalmatch==0.0.1
 
   ```Python
 from causalmatch import matching,gen_test_data
+from sklearn.ensemble import GradientBoostingClassifier
+import statsmodels.api as sm
+
 df = gen_test_data(n = 10000, c_ratio=0.5)
 df.head()
 
@@ -99,6 +102,21 @@ print(results.params)
 
   ```Python
 # STEP 0: define all classification model you need
+from causalmatch import matching
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier
+
 ps_model1 = LogisticRegression(C=1e6)
 ps_model2 = SVC(probability=True)
 ps_model3 = GaussianNB()

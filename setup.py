@@ -7,7 +7,7 @@ def readme():
         return f.read()
 
 
-with open(os.path.join(os.path.dirname(__file__), "causalmatch", "_version.py")) as file:
+with open(os.path.join(os.path.dirname(__file__), "causalmatch/matching", "_version.py")) as file:
     for line in file:
         m = re.fullmatch("__version__ = '([^']+)'\n", line)
         if m:
@@ -19,9 +19,9 @@ dependencies = [
 ]
 
 setup(
-    name    = "causalmatch",
-    version = '0.0.1',
-    author  = "xiaoyuzhou",
+    name="causalmatch",
+    version='0.0.1',
+    author="xiaoyuzhou",
     author_email="xiaoyuzhou@bytedance.com",
     description="Propensity score matching and coarsened exact matching.",
     long_description=readme(),

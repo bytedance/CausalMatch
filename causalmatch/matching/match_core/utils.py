@@ -14,34 +14,57 @@
 
 import numpy as np
 import pandas as pd
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
 
 def data_process_bc(match_obj,
                     include_discrete):
+    """
+    Data preprocess before balance check.
+
+    Parameters
+    ----------
+    match_obj: object after matching
+    include_discrete: if discrete variables are included. if True, then do one-hot.
+    """
+
+    x_numeric = match_obj.X_numeric
+    x_discrete = match_obj.X_discrete
+    df_out_ = match_obj.df_out_final
+    df_cat = match_obj.data_with_categ
+    df_psm_post_trim = match_obj.df_out_final_post_trim
+    df_raw = match_obj.data
+
+    T = match_obj.T
+    id = match_obj.id
+
     if match_obj.method == 'cem':
-        # if process with cem method, previously did not do one-hot, do here for balance check
+        # if process with cem method, previously did not do one-hot,
+        # do here for balance check
         if include_discrete:
             df_post_validate_x = pd.concat([
-                match_obj.df_out_final[match_obj.X_numeric],
-                pd.get_dummies(match_obj.df_out_final[match_obj.X_discrete],
-                               columns = match_obj.X_discrete,
-                               drop_first=True)  # categorical features converted to dummies
+                df_out_[x_numeric],
+                pd.get_dummies(df_out_[x_discrete], columns = x_discrete, drop_first=True)  # categorical features converted to dummies
             ], axis=1)
         else:
-            df_post_validate_x = match_obj.df_out_final[match_obj.X_numeric]
+            df_post_validate_x = df_out_[x_numeric]
 
-        df_post_validate = pd.concat([match_obj.df_out_final[[match_obj.T,match_obj.id]],
-                                      df_post_validate_x], axis=1)
-        X_balance_check = df_post_validate_x.columns
+        df_post_validate = pd.concat([df_out_[[T,id]], df_post_validate_x], axis=1)
+        df_x = df_post_validate_x.columns
     else:
+        # post-process for psm
         if include_discrete:
-            df_right = (match_obj.data_with_categ) * 1
+            df_right = (df_cat) * 1
         else:
-            df_right = match_obj.data_with_categ[match_obj.X_numeric]
+            df_right = df_cat[x_numeric]
 
-        X_balance_check = df_right.columns
-        df_right[match_obj.id] = match_obj.data[match_obj.id]
-        df_post_validate = match_obj.df_out_final_post_trim.merge(df_right, how='left', on=match_obj.id)
-    return X_balance_check, df_post_validate
+        df_x = df_right.columns
+        df_right[id] = df_raw[id]
+        df_post_validate = df_psm_post_trim.merge(df_right, how='left', on=id)
+
+    return df_x, df_post_validate
 
 def calculate_smd(c_array,
                   t_array,

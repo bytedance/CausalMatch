@@ -14,7 +14,9 @@
 
 import numpy as np
 import pandas as pd
-
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+pd.options.mode.chained_assignment = None
 
 def sample_k2k(match_obj, df_matched):
 

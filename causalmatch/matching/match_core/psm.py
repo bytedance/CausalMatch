@@ -17,7 +17,9 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import recall_score, roc_auc_score, f1_score
+import warnings
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def psm(model,
         data,

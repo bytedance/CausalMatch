@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pandas as pd
-from pandas.api.types import is_string_dtype,is_numeric_dtype,is_float_dtype
+from pandas.api.types import is_string_dtype, is_numeric_dtype, is_float_dtype
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -26,14 +26,17 @@ from .utils import calculate_smd, data_process_bc
 import warnings
 import statsmodels.api as sm
 
-class matching:
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+class matching :
     def __init__(self,
                  data: pd.DataFrame,
                  T: str,
                  X: List[str],
-                 y: List[str]=[],
+                 y: List[str] = [],
                  method: str = "psm",
-                 id: str = None):
+                 id: str = None) :
         """
         Initialize matching object, include two methods: psm and cem.
 
@@ -61,16 +64,16 @@ class matching:
         self.id = id
 
         # reserve for output
-        self.data_with_categ  = None
+        self.data_with_categ = None
         self.col_name_x_expand = None
 
-        self.df_out_final     = None
-        self.data_out_treat   = None
+        self.df_out_final = None
+        self.data_out_treat = None
         self.data_out_control = None
-        self.model            = None
-        self.df_out_final_trim_caliper    = None
+        self.model = None
+        self.df_out_final_trim_caliper = None
         self.df_out_final_trim_percentage = None
-        self.df_out_final_post_trim       = None
+        self.df_out_final_post_trim = None
         self.n_bins = None
         self.break_points = None
         self.cluster_criteria = None
@@ -79,39 +82,36 @@ class matching:
         # data-preprocess
         self.preprocess()
 
-
-    def preprocess(self):
+    def preprocess(self) :
 
         # 1. whether T is numeric type
-        if is_numeric_dtype(self.data[self.T]) == False:
+        if is_numeric_dtype(self.data[self.T]) == False :
             raise TypeError('Treatment column in your dataframe is not numeric type, please transfer to numeric type.')
-
 
         # 2.x and t are contained in dataframe
         col_list = set(self.data.columns)
         input_vars = [self.T] + self.X
-        for i in input_vars:
-            if i not in col_list:
+        for i in input_vars :
+            if i not in col_list :
                 raise TypeError('Variable {} is not in the input dataframe.'.format(i))
 
         # 3. if ID column is generated
-        if self.id is None:
+        if self.id is None :
             id = 'id'
             self.data[id] = self.data.index
             self.id = id
-        else:
+        else :
             id = self.id
-            if is_float_dtype(self.data[id]) is True:
+            if is_float_dtype(self.data[id]) is True :
                 warnings.warn("ID columns is float type, cannot support, convert to int type.")
                 self.data[id] = self.data[id].astype(int)
-            else:
+            else :
                 self.data[id] = self.data[id]
-
 
         data = self.data
         # 4. If ID is unique, if is float
         id_check = data.groupby(id)[id].nunique() > 1
-        if len(id_check[id_check == True])>0:
+        if len(id_check[id_check == True]) > 0 :
             raise TypeError('Your dataframe contains duplicate ID, please make sure ID column is unique for each row.')
 
         # 5. If treatment or x has no variation
@@ -123,20 +123,19 @@ class matching:
         X_numeric = list(df_numeric.columns)
         X_discrete = list(df_discrete.columns)
 
-
-        if X_numeric is not None:
-            for i in X_numeric:
-                if data[i].var() == 0:
+        if X_numeric is not None :
+            for i in X_numeric :
+                if data[i].var() == 0 :
                     raise TypeError(err_msg_variation.format(i))
 
-        if X_discrete is not None:
-            for i in X_discrete:
-                if data[i].value_counts().shape[0] <= 1:
+        if X_discrete is not None :
+            for i in X_discrete :
+                if data[i].value_counts().shape[0] <= 1 :
                     raise TypeError(err_msg_variation.format(i))
 
         # 5. If missing values exists
-        for i in self.X:
-            if data[i].isna().sum()>0:
+        for i in self.X :
+            if data[i].isna().sum() > 0 :
                 raise TypeError(err_msg_missing.format(i))
 
         self.df_numeric = df_numeric
@@ -146,24 +145,25 @@ class matching:
 
         return
 
-    def preprocess_psm(self):
+    def preprocess_psm(self) :
 
-        if (self.caliper <= 0) or (self.caliper > 1):
-            raise TypeError('Caliper should be a number between [0,1]. If you want to keep all observation, please set caliper to 1.')
+        if (self.caliper <= 0) or (self.caliper > 1) :
+            raise TypeError(
+                'Caliper should be a number between [0,1]. If you want to keep all observation, please set caliper to 1.')
 
         # for psm, need one-hot encoding
-        if len(self.X_discrete) > 0:
+        if len(self.X_discrete) > 0 :
             data_with_categ = pd.concat([
                 self.df_numeric,  # dataset without the categorical features
                 pd.get_dummies(self.df_discrete,
-                               columns = self.X_discrete,
-                               drop_first = True)  # categorical features converted to dummies
+                               columns=self.X_discrete,
+                               drop_first=True)  # categorical features converted to dummies
             ], axis=1)
             col_name_x_expand = data_with_categ.columns
-        elif len(self.X_discrete) == 0:
+        elif len(self.X_discrete) == 0 :
             data_with_categ = self.df_numeric
             col_name_x_expand = data_with_categ.columns
-        else:
+        else :
             data_with_categ = None
             col_name_x_expand = []
 
@@ -178,8 +178,8 @@ class matching:
             caliper: float = 0.05,
             trim_percentage: float = 0.00,
             drop_duplicates: bool = False,
-            model_list = None,
-            test_size = 0) -> None:
+            model_list=None,
+            test_size=0) -> None :
         """
         Initialize matching object, include two methods: psm and cem.
 
@@ -228,79 +228,81 @@ class matching:
         T = self.T
 
         # step 1: matching
-        df_out_final, data_out, data_out_control, ps_model = psm(model, data, self.data_with_categ, self.col_name_x_expand, T, id, n_neighbors,model_list, test_size)
+        df_out_final, data_out, data_out_control, ps_model = psm(model, data, self.data_with_categ,
+                                                                 self.col_name_x_expand, T, id, n_neighbors, model_list,
+                                                                 test_size)
 
         # step 2: trim pairs with caliper
         df_out_final_trim_caliper, df_out_final_post_trim = self.psm_trim_caliper(df_out_final, caliper)
 
         # step 3: trim p-score percentile
-        df_out_final_trim_percentage = self.psm_trim_percent(df_out_final_trim_caliper,trim_percentage)
+        df_out_final_trim_percentage = self.psm_trim_percent(df_out_final_trim_caliper, trim_percentage)
 
         # step 4: trim
-        if drop_duplicates is True:
+        if drop_duplicates is True :
             df_out_final_trim_percentage.drop_duplicates(subset=[self.id], inplace=True, ignore_index=True)
 
         df_out_final_post_trim = df_out_final_trim_percentage.copy()
 
-        self.data_out_treat   = data_out
+        self.data_out_treat = data_out
         self.data_out_control = data_out_control
-        self.df_out_final     = df_out_final
+        self.df_out_final = df_out_final
         self.df_out_final_post_trim = df_out_final_post_trim
-        self.model            = ps_model
+        self.model = ps_model
         self.df_out_final_trim_caliper = df_out_final_trim_caliper
         self.df_out_final_trim_percentage = df_out_final_trim_percentage
         self.col_name_x_expand = self.col_name_x_expand
 
     def psm_trim_caliper(self,
                          df_pre,
-                         caliper: float = 0.05):
+                         caliper: float = 0.05) :
 
         df_post = df_pre.copy()
-        if caliper > 0:
+        if caliper > 0 :
             df_pre['pscore_diff'] = np.abs(df_pre['pscore_treat'] - df_pre['pscore_control'])
             valid_pair_indices = df_pre[df_pre['pscore_diff'] <= caliper].index
             df_post = df_pre.iloc[valid_pair_indices, :].copy()
             df_post.reset_index(inplace=True, drop=True)
 
         # stack up all observations
-        df_post_treat = df_post[[self.id + "_treat", self.T + "_treat", 'pscore_treat']]
-        df_post_control = df_post[[self.id + "_control", self.T + "_control", 'pscore_control']]
+        df_post_treat = df_post[[self.id + "_treat", self.T + "_treat", 'pscore_treat']].copy()
+        df_post_control = df_post[[self.id + "_control", self.T + "_control", 'pscore_control']].copy()
 
-        df_post_treat.rename(columns={self.id + "_treat":self.id, self.T + "_treat":self.T,'pscore_treat':'pscore'},inplace=True)
-        df_post_control.rename(columns={self.id + "_control": self.id, self.T + "_control": self.T, 'pscore_control': 'pscore'},inplace=True)
+        df_post_treat_ = df_post_treat.rename(
+            columns={self.id + "_treat" : self.id, self.T + "_treat" : self.T, 'pscore_treat' : 'pscore'})
+        df_post_control_ = df_post_control.rename(
+            columns={self.id + "_control" : self.id, self.T + "_control" : self.T, 'pscore_control' : 'pscore'})
 
-        df_full = pd.concat([df_post_treat, df_post_control], axis=0, ignore_index=True)
+        df_full = pd.concat([df_post_treat_, df_post_control_], axis=0, ignore_index=True)
         df_full.drop_duplicates(subset=[self.id], inplace=True, ignore_index=True)
 
         return df_post, df_full
 
     def psm_trim_percent(self,
                          df_pre,
-                         percentage: float = 0.00):
+                         percentage: float = 0.00) :
         df_post = df_pre.copy()
 
         # stack up all observations
         df_post_treat = df_post[[self.id + "_treat", self.T + "_treat", 'pscore_treat']]
         df_post_control = df_post[[self.id + "_control", self.T + "_control", 'pscore_control']]
 
-        df_post_treat.rename(columns={self.id + "_treat":self.id, self.T + "_treat":self.T,'pscore_treat':'pscore'},inplace=True)
-        df_post_control.rename(columns={self.id + "_control": self.id, self.T + "_control": self.T, 'pscore_control': 'pscore'},inplace=True)
+        df_post_treat_ = df_post_treat.rename(
+            columns={self.id + "_treat" : self.id, self.T + "_treat" : self.T, 'pscore_treat' : 'pscore'})
+        df_post_control_ = df_post_control.rename(
+            columns={self.id + "_control" : self.id, self.T + "_control" : self.T, 'pscore_control' : 'pscore'})
 
-        df_full = pd.concat([df_post_treat, df_post_control], axis=0, ignore_index=True)
+        df_full = pd.concat([df_post_treat_, df_post_control_], axis=0, ignore_index=True)
 
-
-        if (percentage > 0) and (percentage < 1):
-
-            # df_full.drop_duplicates(subset=[self.id], inplace=True, ignore_index=True)
-
-            p_score_ub = df_full['pscore'].quantile(q = 1-percentage/2)
-            p_score_lb = df_full['pscore'].quantile(q = percentage/2)
+        if (percentage > 0) and (percentage < 1) :
+            p_score_ub = df_full['pscore'].quantile(q=1 - percentage / 2)
+            p_score_lb = df_full['pscore'].quantile(q=percentage / 2)
             df_post = df_full[(df_full['pscore'] <= p_score_ub) & (df_full['pscore'] >= p_score_lb)]
 
-        elif percentage == 0:
+        elif percentage == 0 :
             df_post = df_full
 
-        else:
+        else :
             raise TypeError('Trim percentage should a value between 0 and 1.')
 
         df_post.reset_index(inplace=True, drop=True)
@@ -308,9 +310,9 @@ class matching:
 
     def cem(self,
             n_bins: int = 5,
-            break_points: Dict[str,List[float]] = None,
+            break_points: Dict[str, List[float]] = None,
             cluster_criteria: Dict[str, List] = None,
-            k2k = False):
+            k2k=False) :
 
         """
         Coarsened exact matching.
@@ -371,7 +373,6 @@ class matching:
 
         self.method = "cem"
 
-
         self.n_bins = n_bins
         self.break_points = break_points
         self.cluster_criteria = cluster_criteria
@@ -381,19 +382,19 @@ class matching:
         X = self.X
 
         df_x_numeric_cut, df_x_string_grouped = bin_cut(self, cluster_criteria, break_points)
-        if (df_x_numeric_cut.shape[1]>0) and (df_x_string_grouped.shape[1]>0):
+        if (df_x_numeric_cut.shape[1] > 0) and (df_x_string_grouped.shape[1] > 0) :
             df_coarsened_full = pd.DataFrame(data=np.concatenate((df_x_numeric_cut, df_x_string_grouped), axis=1),
                                              columns=list(df_x_numeric_cut.columns) + list(df_x_string_grouped.columns))
-        elif (df_x_numeric_cut.shape[1]>0) and (df_x_string_grouped.shape[1]==0):
+        elif (df_x_numeric_cut.shape[1] > 0) and (df_x_string_grouped.shape[1] == 0) :
             df_coarsened_full = df_x_numeric_cut
-        else:
+        else :
             df_coarsened_full = df_x_string_grouped
 
         # generate bin_id
         x_cols_name_full_coarsened = list(df_coarsened_full.columns)
         df_coarsened_full['bin_id'] = ''
 
-        for x in x_cols_name_full_coarsened:
+        for x in x_cols_name_full_coarsened :
             df_coarsened_full['bin_id'] = df_coarsened_full['bin_id'].astype(str) + df_coarsened_full[x].astype(str)
         df_coarsened_full['treatment'] = data[T]
 
@@ -411,9 +412,8 @@ class matching:
         df_matched = data[data['weight_adjust'] > 0].copy()
         df_matched.reset_index(inplace=True, drop=True)
 
-        if k2k is True:
+        if k2k is True :
             df_matched = sample_k2k(self, df_matched)
-
 
         print('number of matched obs', df_matched.shape, 'number of total obs ', data.shape)
 
@@ -422,14 +422,13 @@ class matching:
         self.df_out_final = df_matched
         self.data = data
 
-    def ate(self):
+    def ate(self) :
         X_balance_check, df_post_validate = data_process_bc(self, True)
-        df_post_validate_y = df_post_validate.merge(self.data[self.y + [self.id]], how='left', on = self.id)
+        df_post_validate_y = df_post_validate.merge(self.data[self.y + [self.id]], how='left', on=self.id)
 
+        dict_ate = {"y" : [], "ate" : [], "p_val" : []}
 
-        dict_ate = {"y": [], "ate": [], "p_val": []}
-
-        for y_i in self.y:
+        for y_i in self.y :
             Y = df_post_validate_y[y_i]
             x = df_post_validate_y[self.T]
 
@@ -444,25 +443,23 @@ class matching:
 
         return pd.DataFrame(dict_ate)
 
-
-
     def balance_check(self,
-                      include_discrete = False,
-                      threshold_smd = 0.1,
-                      threshold_vr = 2):
+                      include_discrete=False,
+                      threshold_smd=0.1,
+                      threshold_vr=2) :
 
         treat_var = self.T
         X_balance_check, df_post_validate = data_process_bc(self, include_discrete)
 
-        smd_all = {"Covariates": [],
-                   "Mean Treated": [],
-                   "Mean Control": [],
-                   "SMD": [],
-                   "Var Ratio": [],
-                   "ks-p_val": [],
-                   "ttest-p_val": []}
+        smd_all = {"Covariates" : [],
+                   "Mean Treated" : [],
+                   "Mean Control" : [],
+                   "SMD" : [],
+                   "Var Ratio" : [],
+                   "ks-p_val" : [],
+                   "ttest-p_val" : []}
 
-        for col in X_balance_check:
+        for col in X_balance_check :
             control_array = df_post_validate[df_post_validate[treat_var] == 0][col].values
             treatment_array = df_post_validate[df_post_validate[treat_var] == 1][col].values
             t_avg, c_avg, smd, pass_smd, vr, pass_vr = calculate_smd(control_array,
@@ -478,9 +475,9 @@ class matching:
             # Perform Levene test for equal variances.
             _, levene_p = stats.levene(control_array, treatment_array)
 
-            if levene_p > 0.05:
+            if levene_p > 0.05 :
                 t, p = stats.ttest_ind(control_array, treatment_array, equal_var=True)
-            else:
+            else :
                 t, p = stats.ttest_ind(control_array, treatment_array, equal_var=False)
 
             smd_all["Covariates"].append(col)
@@ -495,7 +492,7 @@ class matching:
         return smd_match_df
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" :
     np.random.seed(123456)
 
     # generate sudo-data for matching
@@ -527,16 +524,16 @@ if __name__ == "__main__":
     df = pd.DataFrame(data=rand_full,
                       columns=col_name_list)
 
-    df['gender'] = df['gender'].replace({0: "male",
-                                         1: "female",
-                                         2: "cat",
-                                         3: "dog",
-                                         4: "pig",
-                                         5: "cat1",
-                                         6: "cat2",
-                                         7: "cat3",
-                                         8: "cat4",
-                                         9: "cat5", })
+    df['gender'] = df['gender'].replace({0 : "male",
+                                         1 : "female",
+                                         2 : "cat",
+                                         3 : "dog",
+                                         4 : "pig",
+                                         5 : "cat1",
+                                         6 : "cat2",
+                                         7 : "cat3",
+                                         8 : "cat4",
+                                         9 : "cat5", })
     df[col_name_y] = rand_continuous @ rand_true_param + param_te * rand_treatment + rand_error
     df['user_id'] = df.index
 
@@ -557,12 +554,11 @@ if __name__ == "__main__":
                          X=['c_1', 'c_2', 'c_3', 'd_1', 'gender'],
                          id='user_id')
 
-    match_obj.psm(n_neighbors = 2,
-                  model = GradientBoostingClassifier(),
+    match_obj.psm(n_neighbors=2,
+                  model=GradientBoostingClassifier(),
                   trim_percentage=0.1,
-                  caliper = 0.000005)
+                  caliper=0.000005)
 
-
-    smd_match_df = match_obj_1.balance_check()
+    smd_match_df = match_obj.balance_check()
 
     print('smd_match_df')

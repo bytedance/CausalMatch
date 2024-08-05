@@ -57,7 +57,7 @@ def psm(model,
 
         else:
             ps_model = model.fit(X_train, y_train)
-            y_pred = ps_model.predict(X_test.values)
+            y_pred = ps_model.predict(X_test)
             f1score = f1_score(y_test.values, y_pred)
             score_list.append(f1score)
 

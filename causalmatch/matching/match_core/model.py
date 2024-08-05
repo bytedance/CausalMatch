@@ -470,7 +470,8 @@ class matching :
 
             # Performs the two-sample Kolmogorov-Smirnov test for goodness of fit.
             ks_stats, pvalue = stats.ks_2samp(control_array,
-                                              treatment_array)
+                                              treatment_array,
+                                              method='asymp')
 
             # Perform Levene test for equal variances.
             _, levene_p = stats.levene(control_array, treatment_array)

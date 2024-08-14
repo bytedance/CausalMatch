@@ -5,6 +5,7 @@
 </h1>
 
 [![PyPI version](https://badge.fury.io/py/causalmatch.svg)](https://badge.fury.io/py/causalmatch)
+[![Downloads](https://static.pepy.tech/badge/causalmatch)](https://pepy.tech/project/causalmatch)
 [![Downloads](https://static.pepy.tech/badge/causalmatch/month)](https://pepy.tech/project/causalmatch)
 [![Downloads](https://static.pepy.tech/badge/causalmatch/week)](https://pepy.tech/project/causalmatch)
 

@@ -14,10 +14,9 @@
 
 import numpy as np
 import pandas as pd
+import scipy.stats as stats
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
-
 
 def data_process_bc(match_obj,
                     include_discrete):
@@ -44,17 +43,28 @@ def data_process_bc(match_obj,
         # if process with cem method, previously did not do one-hot,
         # do here for balance check
         if include_discrete:
+            # post-matching
             df_post_validate_x = pd.concat([
                 df_out_[x_numeric],
-                pd.get_dummies(df_out_[x_discrete], columns = x_discrete, drop_first=True)  # categorical features converted to dummies
+                pd.get_dummies(df_out_[x_discrete], columns=x_discrete, drop_first=True)
+                # categorical features converted to dummies
             ], axis=1)
-        else:
-            df_post_validate_x = df_out_[x_numeric]
 
-        df_post_validate = pd.concat([df_out_[[T,id]], df_post_validate_x], axis=1)
+            # pre-matching
+            df_pre_validate_x = pd.concat([
+                df_raw[x_numeric],
+                pd.get_dummies(df_raw[x_discrete], columns=x_discrete, drop_first=True)
+                # categorical features converted to dummies
+            ], axis=1)
+        else :
+            df_post_validate_x = df_out_[x_numeric]
+            df_pre_validate_x = df_raw[x_numeric]
+
+        df_post_validate = pd.concat([df_out_[[T, id]], df_post_validate_x], axis=1)
+        df_pre_validate = pd.concat([df_raw[[T, id]], df_pre_validate_x], axis=1)
         df_x = df_post_validate_x.columns
     else:
-        # post-process for psm
+        # data with x post match
         if include_discrete:
             df_right = (df_cat) * 1
         else:
@@ -64,7 +74,82 @@ def data_process_bc(match_obj,
         df_right[id] = df_raw[id]
         df_post_validate = df_psm_post_trim.merge(df_right, how='left', on=id)
 
-    return df_x, df_post_validate
+        # data with x pre match
+        df_pre_validate = df_right
+        df_pre_validate[T] = df_raw[T]
+
+    return df_x, df_post_validate, df_pre_validate
+
+def balance_check_x(match_obj,
+                    X,
+                    df_post,
+                    df_pre):
+
+    treat_var = match_obj.T
+    threshold_smd = match_obj.threshold_smd
+    threshold_vr = match_obj.threshold_vr
+
+    smd_match_df_post = smd_df(df_post, X, treat_var, threshold_smd, threshold_vr, 'post')
+    smd_match_df_pre = smd_df(df_pre, X , treat_var, threshold_smd, threshold_vr, 'pre')
+
+    return smd_match_df_post, smd_match_df_pre
+
+
+def smd_df(df, X, treat_var, threshold_smd, threshold_vr, type):
+
+
+    smd_all = {"Covariates" : [],
+               "Mean Treated {}-match".format(type) : [],
+               "Mean Control {}-match".format(type) : [],
+               "SMD" : [],
+               "Var Ratio" : [],
+               "ks-p_val" : [],
+               "ttest-p_val" : []}
+
+    for col in X :
+        col, t_avg, c_avg, t_avg, c_avg, smd, vr, pval, p = smd_x(col, df, treat_var, threshold_smd, threshold_vr)
+
+        smd_all["Covariates"].append(col)
+        smd_all["Mean Treated {}-match".format(type)].append(t_avg)
+        smd_all["Mean Control {}-match".format(type)].append(c_avg)
+        smd_all["SMD"].append(smd)
+        smd_all["Var Ratio"].append(vr)
+        smd_all["ks-p_val"].append(pval)
+        smd_all["ttest-p_val"].append(p)
+
+    df_res = pd.DataFrame(smd_all)
+    return df_res
+
+
+
+def smd_x(col, df, treat_var, threshold_smd, threshold_vr):
+
+    # Xiaoyu Zhou 08/11/2024: cast boolean type dataframe to int or stats raise error
+    c_array = (df[df[treat_var] == 0][col].values)*1
+    t_array = (df[df[treat_var] == 1][col].values)*1
+
+    # post-matching balance test
+    t_avg, c_avg, smd, pass_smd, vr, pass_vr = calculate_smd(c_array,
+                                                             t_array,
+                                                             t_array,
+                                                             threshold_smd,
+                                                             threshold_vr)
+
+    # Performs the two-sample Kolmogorov-Smirnov test for goodness of fit.
+    ks_stats, pvalue = stats.ks_2samp(c_array,
+                                      t_array,
+                                      method='asymp')
+
+    # Perform Levene test for equal variances.
+    _, levene_p = stats.levene(c_array, t_array)
+
+    if levene_p > 0.05 :
+        t, p = stats.ttest_ind(c_array, t_array, equal_var=True)
+    else :
+        t, p = stats.ttest_ind(c_array, t_array, equal_var=False)
+
+    return col,t_avg,c_avg,t_avg,c_avg,smd,vr,np.round(pvalue, 3),np.round(p, 3)
+
 
 def calculate_smd(c_array,
                   t_array,

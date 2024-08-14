@@ -19,10 +19,9 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
 from typing import List, Dict
-import scipy.stats as stats
 from .psm import psm
 from .cem import calculate_weight, bin_cut, sample_k2k
-from .utils import calculate_smd, data_process_bc
+from .utils import data_process_bc, balance_check_x
 import warnings
 import statsmodels.api as sm
 
@@ -48,11 +47,13 @@ class matching :
             dummy treatment, i.e 0-1 binary treatment.
         :param X: list[str], must input
             List of feature names you want to include. Can be float, int, or str.
-        :param method: str, default psm.
-            Whether to use psm method or cem method for matching.
+        :param y: list[str], optional input
+            List of outcome variables (dependent variables) names you want to calculate ATE with.
+        :param method: str, default psm, optional input.
+            Take two values only, either 'cem' or 'psm'.
         :param id: str, default none.
             ID column, can be user id or device id or any level id that you want to match.
-            ID should be row-unique, ie. one id only appear once in your dataframe input.
+            ID should be row-unique, i.e. one id only appear once in your dataframe input.
         """
 
         # original input
@@ -312,7 +313,7 @@ class matching :
             n_bins: int = 5,
             break_points: Dict[str, List[float]] = None,
             cluster_criteria: Dict[str, List] = None,
-            k2k=False) :
+            k2k = False) :
 
         """
         Coarsened exact matching.
@@ -422,83 +423,111 @@ class matching :
         self.df_out_final = df_matched
         self.data = data
 
-    def ate(self) :
-        X_balance_check, df_post_validate = data_process_bc(self, True)
-        df_post_validate_y = df_post_validate.merge(self.data[self.y + [self.id]], how='left', on=self.id)
+    def ate(self,
+            use_weight = False) :
+        """
+        Average treatment effect calculation function.
 
+        Parameters
+        ----------
+        :param use_weight: boolean, default is False.
+            If use CEM, number of treatment obs can differ from the number of control.
+            This option use weighted least square for CEM method to solve this issue.
+
+        Returns
+        -------
+        df_param: Pandas dataframe.
+            Including 'y', 'ate','p-value'
+            columns.
+            'y': name of the dependent variable.
+            'ate': treatment effect coefficient.
+            'p-value': treatment effect p-value.
+
+        """
+        y = self.y
+        id = self.id
+        T = self.T
+        method = self.method
+        X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
+
+        if method=='cem':
+            # 1. merge y variables from raw df to matched df
+            df_post_validate_y_ = df_post_validate.merge(self.data[y + [id]], how='left', on=id)
+
+            # 2. for CEM need one more step due to WLS: merge weight to outcome dataframe
+            df_post_validate_y = df_post_validate_y_.merge(self.df_out_final[[id,'weight_adjust']], how='left', on=id)
+            weight = df_post_validate_y['weight_adjust']
+        else:
+            df_post_validate_y = df_post_validate.merge(self.data[y + [id]], how='left', on=id)
+            weight = None
         dict_ate = {"y" : [], "ate" : [], "p_val" : []}
 
-        for y_i in self.y :
+        x = df_post_validate_y[T]
+        x = sm.add_constant(x)
+
+        # Loop all y variables to do least square
+        for y_i in y :
             Y = df_post_validate_y[y_i]
-            x = df_post_validate_y[self.T]
 
-            x = sm.add_constant(x)
+            if method=='cem' and use_weight is True:
+                model = sm.WLS(Y, x, weights=weight)
+            else:
+                model = sm.OLS(Y, x)
 
-            model = sm.OLS(Y, x)
             results = model.fit()
 
             dict_ate['y'].append(y_i)
-            dict_ate['ate'].append(results.params[self.T])
-            dict_ate['p_val'].append(results.pvalues[self.T])
+            dict_ate['ate'].append(results.params[T])
+            dict_ate['p_val'].append(results.pvalues[T])
+        df_param = pd.DataFrame(dict_ate)
 
-        return pd.DataFrame(dict_ate)
+        return df_param
 
     def balance_check(self,
                       include_discrete=False,
                       threshold_smd=0.1,
-                      threshold_vr=2) :
+                      threshold_vr=2):
 
-        treat_var = self.T
-        X_balance_check, df_post_validate = data_process_bc(self, include_discrete)
+        """
+        Balance check function post matching.
 
-        smd_all = {"Covariates" : [],
-                   "Mean Treated" : [],
-                   "Mean Control" : [],
-                   "SMD" : [],
-                   "Var Ratio" : [],
-                   "ks-p_val" : [],
-                   "ttest-p_val" : []}
+        Parameters
+        ----------
+        :param include_discrete: boolean, default is False.
+            Whether generate 2sample t-test for discrete X.
+        :param threshold_smd: float, default is 0.1.
+            When calculating SMD, threshold used to decide whether pass the test.
+        :param threshold_vr: float, default is 2.
+            When calculating SMD, threshold used to decide whether pass the test.
 
-        for col in X_balance_check :
-            control_array = df_post_validate[df_post_validate[treat_var] == 0][col].values
-            treatment_array = df_post_validate[df_post_validate[treat_var] == 1][col].values
-            t_avg, c_avg, smd, pass_smd, vr, pass_vr = calculate_smd(control_array,
-                                                                     treatment_array,
-                                                                     treatment_array,
-                                                                     threshold_smd,
-                                                                     threshold_vr)
 
-            # Performs the two-sample Kolmogorov-Smirnov test for goodness of fit.
-            ks_stats, pvalue = stats.ks_2samp(control_array,
-                                              treatment_array,
-                                              method='asymp')
+        Returns
+        -------
+        smd_match_df_post: Pandas dataframe.
+            Post matching balance check.
+            Including 'covariates', 'post treatment mean','post control mean', SMD, two-sample t-test
+            result test columns.
 
-            # Perform Levene test for equal variances.
-            _, levene_p = stats.levene(control_array, treatment_array)
+        smd_match_df_pre: Pandas dataframe.
+            Pre matching balance check.
+            Including 'covariates', 'pre treatment mean','pre control mean', SMD, two-sample t-test
+            result test columns.
+        """
+        self.threshold_smd = threshold_smd
+        self.threshold_vr = threshold_vr
 
-            if levene_p > 0.05 :
-                t, p = stats.ttest_ind(control_array, treatment_array, equal_var=True)
-            else :
-                t, p = stats.ttest_ind(control_array, treatment_array, equal_var=False)
+        X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, include_discrete)
 
-            smd_all["Covariates"].append(col)
-            smd_all["Mean Treated"].append(t_avg)
-            smd_all["Mean Control"].append(c_avg)
-            smd_all["SMD"].append(smd)
-            smd_all["Var Ratio"].append(vr)
-            smd_all["ks-p_val"].append(np.round(pvalue, 3))
-            smd_all["ttest-p_val"].append(np.round(p, 3))
+        smd_match_df_post, smd_match_df_pre = balance_check_x(self, X_balance_check, df_post_validate, df_pre_validate)
 
-        smd_match_df = pd.DataFrame(smd_all)
-        return smd_match_df
+
+        return smd_match_df_post, smd_match_df_pre
 
 
 if __name__ == "__main__" :
     np.random.seed(123456)
 
     # generate sudo-data for matching
-    ## 1. generate categorical data
-
     n_obs = 5000
     k_continuous = 3
     k_discrete = 3
@@ -549,7 +578,6 @@ if __name__ == "__main__" :
 
     df['d_3'] = df['d_3'].astype('str')
 
-    # --------------------------------------------- #
     match_obj = matching(data=df,
                          T='treatment',
                          X=['c_1', 'c_2', 'c_3', 'd_1', 'gender'],
@@ -560,6 +588,6 @@ if __name__ == "__main__" :
                   trim_percentage=0.1,
                   caliper=0.000005)
 
-    smd_match_df = match_obj.balance_check()
+    res_post, res_pre = match_obj.balance_check()
 
     print('smd_match_df')

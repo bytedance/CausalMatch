@@ -13,15 +13,14 @@
 # limitations under the License.
 
 import pandas as pd
-from pandas.api.types import is_string_dtype, is_numeric_dtype, is_float_dtype
+from pandas.api.types import is_numeric_dtype, is_float_dtype
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingClassifier
 from typing import List, Dict
-from .psm import psm
-from .cem import calculate_weight, bin_cut, sample_k2k
-from .utils import data_process_bc, balance_check_x
+from causalmatch.matching.match_core.psm import psm
+from causalmatch.matching.match_core.cem import calculate_weight, bin_cut, sample_k2k
+from causalmatch.matching.match_core.utils import data_process_bc, balance_check_x,gen_test_data
 import warnings
 import statsmodels.api as sm
 
@@ -68,6 +67,7 @@ class matching :
         self.data_with_categ = None
         self.col_name_x_expand = None
 
+        self.data_ps = None
         self.df_out_final = None
         self.data_out_treat = None
         self.data_out_control = None
@@ -229,7 +229,7 @@ class matching :
         T = self.T
 
         # step 1: matching
-        df_out_final, data_out, data_out_control, ps_model = psm(model, data, self.data_with_categ,
+        data_ps, df_out_final, data_out, data_out_control, ps_model = psm(model, data, self.data_with_categ,
                                                                  self.col_name_x_expand, T, id, n_neighbors, model_list,
                                                                  test_size)
 
@@ -245,6 +245,7 @@ class matching :
 
         df_out_final_post_trim = df_out_final_trim_percentage.copy()
 
+        self.data_ps = data_ps
         self.data_out_treat = data_out
         self.data_out_control = data_out_control
         self.df_out_final = df_out_final
@@ -525,69 +526,30 @@ class matching :
 
 
 if __name__ == "__main__" :
-    np.random.seed(123456)
+    df = gen_test_data(n=10000, c_ratio=0.5)
+    df.head()
 
-    # generate sudo-data for matching
-    n_obs = 5000
-    k_continuous = 3
-    k_discrete = 3
+    X = ['c_1', 'c_2', 'c_3', 'd_1', 'gender']
+    y = ['y', 'y2']
+    id = 'user_id'
 
-    col_name_x = ['c_1', 'c_2', 'c_3', 'd_1', 'gender', 'd_3']
-    col_name_list = ['c_1', 'c_2', 'c_3', 'd_1', 'gender', 'd_3', 'treatment']
-    col_name_y = ['y']
+    T = 'treatment'
 
-    list_choice = list(range(10))
-    rand_vec_1 = np.random.rand(10)
-    array_prob = rand_vec_1 / np.sum(rand_vec_1)
-    list_prob = list(array_prob)
+    # STEP 1: initialize matching object
+    match_obj_cem = matching(data=df,
+                             y=['y'],
+                             T='treatment',
+                             X=['c_1', 'd_1', 'd_3'],
+                             id='user_id')
 
-    rand_continuous = np.random.rand(n_obs, k_continuous)
-    rand_discrete = np.random.choice(a=list_choice,
-                                     size=[n_obs, k_discrete],
-                                     p=list_prob)
-    rand_treatment = np.random.choice(a=[0, 1], size=[n_obs, 1], p=[0.8, 0.2])
-    rand_error = np.random.normal(loc=0.0, scale=1.0, size=[n_obs, 1])
-    rand_true_param = np.random.normal(loc=0.0, scale=1.0, size=[k_continuous, 1])
-    rand_full = np.concatenate((rand_continuous, rand_discrete, rand_treatment), axis=1)
-    param_te = 0.5
+    # STEP 2: coarsened exact matching
+    match_obj_cem.cem(n_bins=10,
+                      # number of bins you set to divide continuous variables, user pd.qcut function to obatin
+                      k2k=True)  # k2k: make sure number of treatment equals number of control. if is false, you need to apply weighted least square to obtain ATE
 
-    df = pd.DataFrame(data=rand_full,
-                      columns=col_name_list)
+    # STEP 3: balance check after propensity score matching
+    print(match_obj_cem.balance_check(include_discrete=True))
 
-    df['gender'] = df['gender'].replace({0 : "male",
-                                         1 : "female",
-                                         2 : "cat",
-                                         3 : "dog",
-                                         4 : "pig",
-                                         5 : "cat1",
-                                         6 : "cat2",
-                                         7 : "cat3",
-                                         8 : "cat4",
-                                         9 : "cat5", })
-    df[col_name_y] = rand_continuous @ rand_true_param + param_te * rand_treatment + rand_error
-    df['user_id'] = df.index
+    # STEP 4: obtain average partial effect
+    print(match_obj_cem.ate())
 
-    df['d_1'] = df['d_1'].astype('str')
-    df['d_1'].replace(['0.0', '1.0', '2.0'], 'apple', inplace=True)
-    df['d_1'].replace(['3.0', '4.0'], 'pear', inplace=True)
-    df['d_1'].replace(['5.0', '6.0'], 'cat', inplace=True)
-    df['d_1'].replace(['7.0', '8.0'], 'dog', inplace=True)
-    df['d_1'].replace(['9.0'], 'bee', inplace=True)
-
-    df['d_1'].value_counts()
-
-    df['d_3'] = df['d_3'].astype('str')
-
-    match_obj = matching(data=df,
-                         T='treatment',
-                         X=['c_1', 'c_2', 'c_3', 'd_1', 'gender'],
-                         id='user_id')
-
-    match_obj.psm(n_neighbors=2,
-                  model=GradientBoostingClassifier(),
-                  trim_percentage=0.1,
-                  caliper=0.000005)
-
-    res_post, res_pre = match_obj.balance_check()
-
-    print('smd_match_df')

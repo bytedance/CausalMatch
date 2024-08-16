@@ -96,4 +96,4 @@ def psm(model,
                                  T: T + "_control",
                                  "pscore": "pscore" + "_control"}, inplace=True)
 
-    return df_out_final, data_out, data_out_control, ps_model
+    return data_ps, df_out_final, data_out, data_out_control, ps_model

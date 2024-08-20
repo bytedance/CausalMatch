@@ -16,10 +16,10 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
 def data_process_bc(match_obj,
-                    include_discrete):
+                    include_discrete) :
     """
     Data preprocess before balance check.
 
@@ -42,7 +42,7 @@ def data_process_bc(match_obj,
     if match_obj.method == 'cem':
         # if process with cem method, previously did not do one-hot,
         # do here for balance check
-        if include_discrete:
+        if include_discrete and len(x_discrete)>0:
             # post-matching
             df_post_validate_x = pd.concat([
                 df_out_[x_numeric],
@@ -63,11 +63,11 @@ def data_process_bc(match_obj,
         df_post_validate = pd.concat([df_out_[[T, id]], df_post_validate_x], axis=1)
         df_pre_validate = pd.concat([df_raw[[T, id]], df_pre_validate_x], axis=1)
         df_x = df_post_validate_x.columns
-    else:
+    else :
         # data with x post match
-        if include_discrete:
+        if include_discrete or x_discrete is None:
             df_right = (df_cat) * 1
-        else:
+        else :
             df_right = df_cat[x_numeric]
 
         df_x = df_right.columns
@@ -80,24 +80,43 @@ def data_process_bc(match_obj,
 
     return df_x, df_post_validate, df_pre_validate
 
+def data_process_ate(match_obj, df_post_validate):
+    y = match_obj.y
+    id = match_obj.id
+
+    method = match_obj.method
+    data = match_obj.data
+    df_out_final = match_obj.df_out_final
+
+    if method == 'cem':
+        # 1. merge y variables from raw df to matched df
+        df_post_validate_y_ = df_post_validate.merge(data[y + [id]], how='left', on=id)
+
+        # 2. for CEM need one more step due to WLS: merge weight to outcome dataframe
+        df_post_validate_y = df_post_validate_y_.merge(df_out_final[[id, 'weight_adjust']], how='left', on=id)
+        weight = df_post_validate_y['weight_adjust']
+    else :
+        df_post_validate_y = df_post_validate.merge(data[y + [id]], how='left', on=id)
+        weight = None
+
+    return df_post_validate_y, weight
+
+
 def balance_check_x(match_obj,
                     X,
                     df_post,
                     df_pre):
-
     treat_var = match_obj.T
     threshold_smd = match_obj.threshold_smd
     threshold_vr = match_obj.threshold_vr
 
     smd_match_df_post = smd_df(df_post, X, treat_var, threshold_smd, threshold_vr, 'post')
-    smd_match_df_pre = smd_df(df_pre, X , treat_var, threshold_smd, threshold_vr, 'pre')
+    smd_match_df_pre = smd_df(df_pre, X, treat_var, threshold_smd, threshold_vr, 'pre')
 
     return smd_match_df_post, smd_match_df_pre
 
 
-def smd_df(df, X, treat_var, threshold_smd, threshold_vr, type):
-
-
+def smd_df(df, X, treat_var, threshold_smd, threshold_vr, type) :
     smd_all = {"Covariates" : [],
                "Mean Treated {}-match".format(type) : [],
                "Mean Control {}-match".format(type) : [],
@@ -121,12 +140,10 @@ def smd_df(df, X, treat_var, threshold_smd, threshold_vr, type):
     return df_res
 
 
-
-def smd_x(col, df, treat_var, threshold_smd, threshold_vr):
-
+def smd_x(col, df, treat_var, threshold_smd, threshold_vr) :
     # Xiaoyu Zhou 08/11/2024: cast boolean type dataframe to int or stats raise error
-    c_array = (df[df[treat_var] == 0][col].values)*1
-    t_array = (df[df[treat_var] == 1][col].values)*1
+    c_array = (df[df[treat_var] == 0][col].values) * 1
+    t_array = (df[df[treat_var] == 1][col].values) * 1
 
     # post-matching balance test
     t_avg, c_avg, smd, pass_smd, vr, pass_vr = calculate_smd(c_array,
@@ -148,36 +165,35 @@ def smd_x(col, df, treat_var, threshold_smd, threshold_vr):
     else :
         t, p = stats.ttest_ind(c_array, t_array, equal_var=False)
 
-    return col,t_avg,c_avg,t_avg,c_avg,smd,vr,np.round(pvalue, 3),np.round(p, 3)
+    return col, t_avg, c_avg, t_avg, c_avg, smd, vr, np.round(pvalue, 3), np.round(p, 3)
 
 
 def calculate_smd(c_array,
                   t_array,
                   all_t_array,
                   threshold_smd,
-                  threshold_vr):
+                  threshold_vr) :
     c_avg = np.round(c_array.mean(), 4)
     t_avg = np.round(t_array.mean(), 4)
     sf = all_t_array.std()
     smd = np.round((t_avg - c_avg) / sf, 2)
-    if np.abs(smd) > threshold_smd:
+    if np.abs(smd) > threshold_smd :
         pass_smd = False
-    else:
+    else :
         pass_smd = True
-    if np.all((c_array == 0) | (c_array == 1)) and np.all((t_array == 0) | (t_array == 1)):
+    if np.all((c_array == 0) | (c_array == 1)) and np.all((t_array == 0) | (t_array == 1)) :
         vr = np.nan
         pass_vr = np.nan
-    else:
+    else :
         vr = np.round(np.var(t_array) / np.var(c_array), 2)
-        if (vr < threshold_vr) and (vr > 1 / threshold_vr):
+        if (vr < threshold_vr) and (vr > 1 / threshold_vr) :
             pass_vr = True
-        else:
+        else :
             pass_vr = False
     return t_avg, c_avg, smd, pass_smd, vr, pass_vr
 
 
-def gen_test_data(n = 5000, c_ratio = 0.1):
-
+def gen_test_data(n=5000, c_ratio=0.1) :
     """
     :n: number of observations
     :c_ratio: fraction of control obs
@@ -204,25 +220,25 @@ def gen_test_data(n = 5000, c_ratio = 0.1):
     rand_discrete = np.random.choice(a=list_choice,
                                      size=[n_obs, k_discrete],
                                      p=list_prob)
-    rand_treatment = np.random.choice(a=[0, 1], size=[n_obs, 1], p=[c_ratio, 1-c_ratio])
+    rand_treatment = np.random.choice(a=[0, 1], size=[n_obs, 1], p=[c_ratio, 1 - c_ratio])
     rand_error = np.random.normal(loc=0.0, scale=1.0, size=[n_obs, 1])
-    rand_true_param = np.random.normal(loc=0.0, scale=1.0, size=[k_continuous, 1])
+    rand_true_param = np.random.normal(loc =5.0, scale=1.0, size=[k_continuous, 1])
     rand_full = np.concatenate((rand_continuous, rand_discrete, rand_treatment), axis=1)
     param_te = 0.5
 
     df = pd.DataFrame(data=rand_full,
                       columns=col_name_list)
 
-    df['gender'] = df['gender'].replace({0: "male",
-                                         1: "female",
-                                         2: "cat",
-                                         3: "dog",
-                                         4: "pig",
-                                         5: "cat1",
-                                         6: "cat2",
-                                         7: "cat3",
-                                         8: "cat4",
-                                         9: "cat5", })
+    df['gender'] = df['gender'].replace({0 : "male",
+                                         1 : "female",
+                                         2 : "cat",
+                                         3 : "dog",
+                                         4 : "pig",
+                                         5 : "cat1",
+                                         6 : "cat2",
+                                         7 : "cat3",
+                                         8 : "cat4",
+                                         9 : "cat5", })
     df[col_name_y] = rand_continuous @ rand_true_param + param_te * rand_treatment + rand_error
 
     df['y2'] = 0.1 * rand_treatment + rand_error
@@ -240,11 +256,10 @@ def gen_test_data(n = 5000, c_ratio = 0.1):
 
     df['d_3'] = df['d_3'].astype('str')
 
-    return df
+    return df, rand_continuous, rand_true_param, param_te , rand_treatment, rand_error
 
 
-
-def gen_test_data_panel(N, T, beta, ate, exp_date, unbalance=False):
+def gen_test_data_panel(N, T, beta, ate, exp_date, unbalance=False) :
     """
     :N: number of cross sections
     :T: number of time periods
@@ -252,10 +267,10 @@ def gen_test_data_panel(N, T, beta, ate, exp_date, unbalance=False):
     :ate: true ate
     :exp_date: experiment date
     """
-    if exp_date > T:
+    if exp_date > T :
         raise NameError('exp_date must be smaller than the number of time periods')
 
-    if len(beta) <= 1:
+    if len(beta) <= 1 :
         raise NameError('length of array beta must be greater than or equal to 2')
 
     k = len(beta)
@@ -282,9 +297,9 @@ def gen_test_data_panel(N, T, beta, ate, exp_date, unbalance=False):
     treatment_group = np.random.choice(id_list, round(N / 4), replace=False)
 
     df = pd.DataFrame(data=x)
-    for name in df.columns:
+    for name in df.columns :
         new_name = "x_" + str(name)
-        df = df.rename(columns={name: new_name})
+        df = df.rename(columns={name : new_name})
 
     beta = np.reshape(beta, (-1, k))
     df['xb'] = np.dot(x, beta.T)
@@ -296,21 +311,21 @@ def gen_test_data_panel(N, T, beta, ate, exp_date, unbalance=False):
     df['error'] = error
 
     df['post'] = (df['time'] >= exp_date) * 1
-    df['treatment'] = df['id'].apply(lambda x: 1 if x in treatment_group else 0)
+    df['treatment'] = df['id'].apply(lambda x : 1 if x in treatment_group else 0)
 
     df['y'] = df['xb'] + ate * df['treatment'] * df['post'] + df['c_i'] + df['a_t'] + df['error']
 
     df2 = df.copy()
-    for tt in time_list:
-        if tt<10:
+    for tt in time_list :
+        if tt < 10 :
             time_str = "date_0" + str(int(tt))
-        else:
+        else :
             time_str = "date_" + str(int(tt))
-        df2 = df2.replace({'time': tt}, time_str)
+        df2 = df2.replace({'time' : tt}, time_str)
 
-    if unbalance:
+    if unbalance :
         np.random.seed(10)
-        drop_indices = np.random.choice(df.index, N-1, replace=False)
+        drop_indices = np.random.choice(df.index, N - 1, replace=False)
         df2 = df2.drop(drop_indices)
 
     return df2

@@ -20,13 +20,13 @@ from sklearn.linear_model import LogisticRegression
 from typing import List, Dict
 from causalmatch.matching.match_core.psm import psm
 from causalmatch.matching.match_core.cem import calculate_weight, bin_cut, sample_k2k
-from causalmatch.matching.match_core.utils import data_process_bc, balance_check_x,gen_test_data
+from causalmatch.matching.match_core.utils import data_process_bc, data_process_ate, balance_check_x,gen_test_data
+from causalmatch.matching.match_core.ate import ate
+from causalmatch.matching.match_core.meta_learner import s_learner_linear
 import warnings
-import statsmodels.api as sm
+
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
-
 class matching :
     def __init__(self,
                  data: pd.DataFrame,
@@ -86,7 +86,7 @@ class matching :
     def preprocess(self) :
 
         # 1. whether T is numeric type
-        if is_numeric_dtype(self.data[self.T]) == False :
+        if not is_numeric_dtype(self.data[self.T]) :
             raise TypeError('Treatment column in your dataframe is not numeric type, please transfer to numeric type.')
 
         # 2.x and t are contained in dataframe
@@ -424,8 +424,7 @@ class matching :
         self.df_out_final = df_matched
         self.data = data
 
-    def ate(self,
-            use_weight = False) :
+    def ate(self, use_weight = False) :
         """
         Average treatment effect calculation function.
 
@@ -445,44 +444,50 @@ class matching :
             'p-value': treatment effect p-value.
 
         """
-        y = self.y
-        id = self.id
-        T = self.T
-        method = self.method
+
+        # 1. post-process data
         X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
 
-        if method=='cem':
-            # 1. merge y variables from raw df to matched df
-            df_post_validate_y_ = df_post_validate.merge(self.data[y + [id]], how='left', on=id)
-
-            # 2. for CEM need one more step due to WLS: merge weight to outcome dataframe
-            df_post_validate_y = df_post_validate_y_.merge(self.df_out_final[[id,'weight_adjust']], how='left', on=id)
-            weight = df_post_validate_y['weight_adjust']
-        else:
-            df_post_validate_y = df_post_validate.merge(self.data[y + [id]], how='left', on=id)
-            weight = None
-        dict_ate = {"y" : [], "ate" : [], "p_val" : []}
-
-        x = df_post_validate_y[T]
-        x = sm.add_constant(x)
-
-        # Loop all y variables to do least square
-        for y_i in y :
-            Y = df_post_validate_y[y_i]
-
-            if method=='cem' and use_weight is True:
-                model = sm.WLS(Y, x, weights=weight)
-            else:
-                model = sm.OLS(Y, x)
-
-            results = model.fit()
-
-            dict_ate['y'].append(y_i)
-            dict_ate['ate'].append(results.params[T])
-            dict_ate['p_val'].append(results.pvalues[T])
-        df_param = pd.DataFrame(dict_ate)
-
+        # 2. OLS and get treatment effect
+        df_param = ate(self, use_weight, df_post_validate)
         return df_param
+
+    def hte(self):
+        """
+        Average treatment effect calculation function.
+
+        `match_obj.hte()` returns the treatment effect from a linear single learner model
+        $y=f(X,T)+\varepsilon $, where $f(X,T)$ is a first order polynomial. For example, if $X=[X_1,X_2]$, $y=\alpha_0+\alpha_1 X_1 T+\alpha_2 X_2 T+\alpha_3 X_1 +\alpha_4 X_2+\alpha_5 T  +  \varepsilon$.
+        We also provide MAPE score based on linear model.
+
+        Returns
+        -------
+        hte_linear: 2D Numpy array with shape N*1.
+        """
+
+        T = self.T
+
+        if self.y is None or len(self.y)==0:
+            raise TypeError('Please specify y variable in matching function.')
+        else:
+            y = self.y[0]
+            if len(self.y) > 1 :
+                warnings.warn("We take the first y variable from your multiple y variables")
+
+        # 1. post-process data
+        X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
+        df_post_validate_y, weight = data_process_ate(self, df_post_validate)
+
+        # 2. Single learner
+        X_mat = df_post_validate[X_balance_check].values
+        T_mat = df_post_validate[[T]].values
+        y_mat = df_post_validate_y[[y]].values
+
+        est_linear = s_learner_linear()
+        est_linear.fit(y_mat, T_mat, X_mat)
+        hte_linear = est_linear.predict(X_mat)
+
+        return hte_linear
 
     def balance_check(self,
                       include_discrete=False,
@@ -526,10 +531,12 @@ class matching :
 
 
 if __name__ == "__main__" :
-    df = gen_test_data(n=10000, c_ratio=0.5)
+    df, rand_continuous, rand_true_param, param_te , rand_treatment, rand_error = gen_test_data(n = 10000, c_ratio=0.5)
+
     df.head()
 
-    X = ['c_1', 'c_2', 'c_3', 'd_1', 'gender']
+    # X = ['c_1', 'c_2', 'c_3', 'd_1', 'gender']
+    X = ['c_1', 'c_2', 'c_3']
     y = ['y', 'y2']
     id = 'user_id'
 
@@ -539,17 +546,17 @@ if __name__ == "__main__" :
     match_obj_cem = matching(data=df,
                              y=['y'],
                              T='treatment',
-                             X=['c_1', 'd_1', 'd_3'],
+                             X=X,
                              id='user_id')
 
     # STEP 2: coarsened exact matching
-    match_obj_cem.cem(n_bins=10,
-                      # number of bins you set to divide continuous variables, user pd.qcut function to obatin
-                      k2k=True)  # k2k: make sure number of treatment equals number of control. if is false, you need to apply weighted least square to obtain ATE
+    match_obj_cem.cem(n_bins=10, k2k=True)
 
     # STEP 3: balance check after propensity score matching
     print(match_obj_cem.balance_check(include_discrete=True))
 
     # STEP 4: obtain average partial effect
     print(match_obj_cem.ate())
+
+    linear_hte = match_obj_cem.hte()
 

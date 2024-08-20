@@ -43,6 +43,8 @@ If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
 
 </details>
 
+</details>
+
 # Getting Started
 
 ## Installation

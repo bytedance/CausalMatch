@@ -17,7 +17,6 @@ Our toolkit possess the following features:
 * Use a unified API
 * Build on standard Python packages for Machine Learning and Data Analysis
 
-
 [//]: # (For information on use cases and background material on causal inference and heterogeneous treatment effects see our webpage at [webpage here])
 
 <details>

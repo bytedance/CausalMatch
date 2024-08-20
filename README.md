@@ -35,6 +35,10 @@ Our toolkit possess the following features:
 
 If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
 
+**August 20, 2024:** Release v0.0.2, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.2)
+
+<details><summary>Previous releases</summary>
+
 **August 2, 2024:** Release 0.0.1.
 
 </details>

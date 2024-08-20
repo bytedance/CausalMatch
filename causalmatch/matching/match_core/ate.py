@@ -15,7 +15,7 @@
 import pandas as pd
 import warnings
 import statsmodels.api as sm
-from causalmatch.matching.match_core.utils import data_process_ate
+from .utils import data_process_ate
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def ate(match_obj, use_weight, df_post_validate):

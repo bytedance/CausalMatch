@@ -31,7 +31,6 @@ Our toolkit possess the following features:
 - [References](#references)
 
 
-
 # News
 
 If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
@@ -46,7 +45,7 @@ If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
 
 Install the latest release from [PyPI]:
 ```
-pip install causalmatch==0.0.1
+pip install causalmatch==0.0.2
 ```
 
 

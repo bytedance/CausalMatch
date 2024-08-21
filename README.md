@@ -9,6 +9,7 @@
 [![Downloads](https://static.pepy.tech/badge/causalmatch/month)](https://pepy.tech/project/causalmatch)
 [![Downloads](https://static.pepy.tech/badge/causalmatch/week)](https://pepy.tech/project/causalmatch)
 
+
 **CausalMatch** is a Python package that implements two classic matching methods, propensity score matching (PSM) and coarsened exact matching (CEM), to estimate average treatment effects from observational data. 
 This package was designed and built as part of the ByteDance data science research program with the goal of combining state-of-the-art machine learning techniques with econometrics to bring automation to complex causal inference problems.
 Our toolkit possess the following features:
@@ -28,11 +29,12 @@ Our toolkit possess the following features:
   - [Usage Examples](#usage-examples)
     - [Estimation Methods](#estimation-methods)
 - [References](#references)
-
+</details>
 
 # News
 
-If you'd like to contribute to this project, contact xiaoyuzhou@bytedance.com.
+If you'd like to contribute to this project, please contact xiaoyuzhou@bytedance.com. 
+If you have any questions, feel free to raise them in the issues section.
 
 **August 20, 2024:** Release v0.0.2, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.2)
 

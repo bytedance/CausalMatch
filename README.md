@@ -1,6 +1,6 @@
 <h1>
 <a href="">
-<img src="doc/logo.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
+<img src="doc/logo_nobc.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
 </a> CausalMatch: A Python Package for Propensity Score Matching and Coarsened Exact Matching 
 </h1>
 
@@ -8,7 +8,6 @@
 [![Downloads](https://static.pepy.tech/badge/causalmatch)](https://pepy.tech/project/causalmatch)
 [![Downloads](https://static.pepy.tech/badge/causalmatch/month)](https://pepy.tech/project/causalmatch)
 [![Downloads](https://static.pepy.tech/badge/causalmatch/week)](https://pepy.tech/project/causalmatch)
-
 
 **CausalMatch** is a Python package that implements two classic matching methods, propensity score matching (PSM) and coarsened exact matching (CEM), to estimate average treatment effects from observational data. 
 This package was designed and built as part of the ByteDance data science research program with the goal of combining state-of-the-art machine learning techniques with econometrics to bring automation to complex causal inference problems.

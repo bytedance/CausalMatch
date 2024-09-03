@@ -1,6 +1,6 @@
 <h1>
 <a href="">
-<img src="doc/logo_nobc.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
+<img src="doc/logo_nobc.png" width="80px" align="left" style="margin-right: 10px;", alt="causamatch-logo"> 
 </a> CausalMatch: A Python Package for Propensity Score Matching and Coarsened Exact Matching 
 </h1>
 

@@ -94,7 +94,7 @@ class Testing(unittest.TestCase):
 
         # test when X only include 1 continuous variable
         match_obj = matching(data=df, T=T, X=X_1, id=id, y = y)
-        match_obj.psm(n_neighbors=1, model=LogisticRegression(), trim_percentage=0.1, caliper=0.1)
+        match_obj.psm(n_neighbors=1, model=LogisticRegression(), trim_percentage=0.1, caliper=0.1, verbose=True)
         res_post, res_pre = match_obj.balance_check(include_discrete=True)
         df_res = match_obj.ate()
 

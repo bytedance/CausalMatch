@@ -63,6 +63,7 @@ class matching :
         self.y = y
         self.method = method
         self.id = id
+        self.verbose = None
 
         # reserve for output
         self.data_with_categ = None
@@ -181,7 +182,8 @@ class matching :
             trim_percentage: float = 0.00,
             drop_duplicates: bool = False,
             model_list=None,
-            test_size=0) -> None :
+            test_size=0,
+            verbose=None) -> None :
         """
         Initialize matching object, include two methods: psm and cem.
 
@@ -232,7 +234,7 @@ class matching :
         # step 1: matching
         data_ps, df_out_final, data_out, data_out_control, ps_model = psm(model, data, self.data_with_categ,
                                                                  self.col_name_x_expand, T, id, n_neighbors, model_list,
-                                                                 test_size)
+                                                                 test_size,verbose=verbose)
 
         # step 2: trim pairs with caliper
         df_out_final_trim_caliper, df_out_final_post_trim = self.psm_trim_caliper(df_out_final, caliper)

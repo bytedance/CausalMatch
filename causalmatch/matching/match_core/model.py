@@ -23,6 +23,7 @@ from causalmatch.matching.match_core.cem import calculate_weight, bin_cut, sampl
 from causalmatch.matching.match_core.utils import data_process_bc, data_process_ate, balance_check_x,gen_test_data
 from causalmatch.matching.match_core.ate import ate
 from causalmatch.matching.match_core.meta_learner import s_learner_linear
+from causalmatch.matching.match_core.robust_check import sensitivity_test
 
 import warnings
 
@@ -57,6 +58,7 @@ class matching :
         """
 
         # original input
+        self.threshold_smd = None
         self.data = data
         self.T = T
         self.X = X
@@ -181,9 +183,9 @@ class matching :
             caliper: float = 0.05,
             trim_percentage: float = 0.00,
             drop_duplicates: bool = False,
-            model_list=None,
-            test_size=0,
-            verbose=None) -> None :
+            model_list = None,
+            test_size = 0,
+            verbose = None) -> None :
         """
         Initialize matching object, include two methods: psm and cem.
 
@@ -447,6 +449,8 @@ class matching :
             'p-value': treatment effect p-value.
 
         """
+        if self.y is None or len(self.y)==0:
+            raise TypeError('Please specify y variable in matching function.')
 
         # 1. post-process data
         X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
@@ -524,13 +528,58 @@ class matching :
         """
         self.threshold_smd = threshold_smd
         self.threshold_vr = threshold_vr
-
         X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, include_discrete)
 
         smd_match_df_post, smd_match_df_pre = balance_check_x(self, X_balance_check, df_post_validate, df_pre_validate)
 
-
         return smd_match_df_post, smd_match_df_pre
+
+
+
+
+    def sensitivity_test(self,
+                         gamma: List[int]):
+        """
+        Sensitivity test, following Rosenbaum (2005) "Sensitivity analysis in observational studies".
+        You can start with fitting a list of integers starting from 1, such as [1,2,3,...] and
+        see from which gamma, the "p-val upper bound" start to fall below 0.05
+
+        Parameters
+        ----------
+        :param gamma: List[int], must input.
+            Gamma measures the odds of treatment that is up to gamma times greater
+            than the odds for another subject. When Gamma equals to 1, everyone has
+            the same chance of receiving the treatment.
+
+
+        Returns
+        -------
+        df: Pandas dataframe of test results with different gamma and y.
+            The 'Wilcoxon-statistic' column is the one-sided Wilcoxon signed-rank test statistics
+            computed using the matched pair's y values based on pair info from match_obj.df_out_final.
+            The 'gamma' column is the gamma value from your input that is used to compute the upper
+            bound and lower bound's test statistics.
+            The 'stat upper bound' column is the upper bound value for the inferenced quantities,
+            The 'lower upper bound' column is the lower bound value for the inferenced quantities,
+            The 'z-score upper bound' column is the upper bound z-score for the inferenced quantities,
+            The 'z-score lower bound' column is the lower bound z-score for the inferenced quantities,
+            The 'y' column indicates which y is computed,
+
+        """
+        if self.method != 'psm':
+            raise TypeError('This function only supports psm method.')
+
+        if self.y is None or len(self.y)==0:
+            raise TypeError('Please specify y variable in matching function.')
+
+        df_res_full = pd.DataFrame()
+        for y_i in self.y:
+            df_res = sensitivity_test(self, gamma, y_i)
+            df_res['y'] = y_i
+            df_res_full = df_res_full._append(df_res, ignore_index=True)
+
+        return df_res_full
+
 
 
 if __name__ == "__main__" :

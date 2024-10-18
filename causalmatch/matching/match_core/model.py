@@ -534,9 +534,6 @@ class matching :
 
         return smd_match_df_post, smd_match_df_pre
 
-
-
-
     def sensitivity_test(self,
                          gamma: List[int]):
         """

@@ -7,7 +7,19 @@ def sensitivity_test(match_obj, gamma, y_i):
     id_list_c = match_obj.df_out_final['user_id_control'].to_list()
 
     df_pair = pd.DataFrame()
-    df_pair['y_t'], df_pair['y_c'] = match_obj.data.iloc[id_list_t][y_i].values, match_obj.data.iloc[id_list_c][y_i].values
+    # ------------------------------------------------------------------------------
+    # BUGFIX: 20241018
+    # df_pair['y_t'], df_pair['y_c'] = match_obj.data.iloc[id_list_t][y_i].values, match_obj.data.iloc[id_list_c][y_i].values
+    df_pair['y_t'] = match_obj.data[match_obj.data[match_obj.id].isin(id_list_t)][y_i].values
+    df_pair['user_id_treat'] = id_list_t
+    df_pair['user_id_control'] = id_list_c
+    df_pair_ = df_pair.merge(match_obj.data[[match_obj.id, y_i]], how='left', left_on='user_id_control',
+                             right_on=match_obj.id)
+    df_pair_.rename(columns={y_i : "y_c"}, inplace=True)
+    df_pair_.drop(columns=match_obj.id, inplace=True)
+    df_pair = df_pair_.copy()
+    # ------------------------------------------------------------------------------
+
     df_pair['absolute_diff'] = np.abs(df_pair['y_t'] - df_pair['y_c'])
     df_pair['absolute_diff_rank'] = df_pair['absolute_diff'].rank()
     df_pair['cs1'] = (df_pair['y_t'] > df_pair['y_c']) * 1

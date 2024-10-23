@@ -23,7 +23,7 @@ from causalmatch.matching.match_core.cem import calculate_weight, bin_cut, sampl
 from causalmatch.matching.match_core.utils import data_process_bc, data_process_ate, balance_check_x,gen_test_data
 from causalmatch.matching.match_core.ate import ate
 from causalmatch.matching.match_core.meta_learner import s_learner_linear
-from causalmatch.matching.match_core.robust_check import sensitivity_test
+from causalmatch.matching.match_core.robust_check import sensitivity_test, placebo_treatment_estimate
 
 import warnings
 
@@ -66,6 +66,11 @@ class matching :
         self.method = method
         self.id = id
         self.verbose = None
+        self.n_neighbors = None
+        self.trim_percentage = None
+        self.drop_duplicates = None
+        self.model_list = None
+        self.test_size = None
 
         # reserve for output
         self.data_with_categ = None
@@ -227,6 +232,12 @@ class matching :
         self.method = "psm"
         self.caliper = caliper
         self.drop_duplicates = drop_duplicates
+        self.n_neighbors = n_neighbors
+        self.trim_percentage = trim_percentage
+        self.model_list = model_list
+        self.test_size = test_size
+
+
         self.preprocess_psm()
 
         id = self.id
@@ -419,7 +430,7 @@ class matching :
         df_matched = data[data['weight_adjust'] > 0].copy()
         df_matched.reset_index(inplace=True, drop=True)
 
-        if k2k is True :
+        if k2k is True:
             df_matched = sample_k2k(self, df_matched)
 
         print('number of matched obs', df_matched.shape, 'number of total obs ', data.shape)
@@ -577,6 +588,54 @@ class matching :
 
         return df_res_full
 
+
+    def placebo_treatment(self,
+                          n: int = 1000,
+                          b: int = 100):
+        """
+        Verifies the effect disappears when the Treatment is replaced with a placebo.
+
+        Parameters
+        ----------
+        :param n: int, must input.
+            Number of items from x axis to return, i.e how many rows are sample with replacement
+            from original dataframe.
+        :param b: int, must input.
+            The number of bootstrap sample, default equals 100.
+
+
+        Returns
+        -------
+        ate: Numpy array to store ATE estimate for each bootstrap sample with length b X 1.
+
+        """
+        if self.method != 'psm':
+            raise TypeError('This function only supports psm method.')
+
+        if self.model_list != None:
+            raise TypeError('This function only supports model option input, does not support model_list option input.')
+
+        if len(self.y) > 1 :
+            raise TypeError(
+                'Placebo test only support estimator for one y variable, '
+                'please restrict your y input to a list with only one y variable.')
+
+        if self.y is None:
+            raise TypeError('Please input one y variable.')
+
+
+        true_ate = self.ate().iloc[0]['ate']
+        ate_array = placebo_treatment_estimate(self, n, b)
+
+        # empirical confidence interval
+        lb_index = np.round(b * 0.025)
+        ub_index = np.round(b * (1 - 0.025))
+        critical_value_lb = np.sort(np.array(ate_array))[int(lb_index)]
+        critical_value_ub = np.sort(np.array(ate_array))[int(ub_index)]
+        print('The true ATE is: ', true_ate)
+        print('The empirical confidence interval is: ', critical_value_lb, critical_value_ub)
+
+        return ate_array
 
 
 if __name__ == "__main__" :

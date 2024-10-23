@@ -150,8 +150,8 @@ def main():
 
     # Call the psm function
     data_ps, df_out_final, data_out, data_out_control, ps_model = psm(
-        model= LogisticRegression(random_state=0, C=1e6),
-        data=data,
+        model = LogisticRegression(random_state=0, C=1e6),
+        data = data,
         data_with_categ=data_with_categ,
         col_name_x_expand=col_name_x_expand,
         T=T,

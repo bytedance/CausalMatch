@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
+import copy
+
 def sensitivity_test(match_obj, gamma, y_i):
 
     id_list_t = match_obj.df_out_final['user_id_treat'].to_list()
@@ -73,3 +75,44 @@ def sensitivity_test(match_obj, gamma, y_i):
 
     df_sensitivity_test = pd.DataFrame(lst, columns=cols)
     return df_sensitivity_test
+
+
+def placebo_treatment_estimate(match_obj, n, b):
+
+
+    np.random.seed(123456)
+
+    # Sample sub data from original dataset
+    data_b = match_obj.data.sample(n=n).copy()
+    data_b.reset_index(inplace=True, drop=True)
+
+    # Create random treatment variable based on binomial(0.5) distribution
+    rand_discrete = np.random.binomial(1, 0.5, [n, b])
+    ate_list = []
+
+    pseudo_t_list = []
+    for i in range(b):
+        t_i_name = 't_{}'.format(i)
+        pseudo_t_list.append(t_i_name)
+        data_b[t_i_name] = rand_discrete[:, i]
+
+        match_obj_i = copy.deepcopy(match_obj)
+
+        # specify parameter change with loop
+        match_obj_i.data = data_b
+        match_obj_i.T = t_i_name
+        match_obj_i.preprocess()
+
+        match_obj_i.psm(n_neighbors=1,
+                        model=match_obj.model,
+                        caliper=match_obj.caliper,
+                        trim_percentage=match_obj.trim_percentage,
+                        drop_duplicates=match_obj.drop_duplicates,
+                        model_list=match_obj.model_list,
+                        test_size=match_obj.test_size,
+                        verbose=None)
+
+        ate_i = match_obj_i.ate().iloc[0]['ate']
+        ate_list.append(ate_i)
+
+    return ate_list

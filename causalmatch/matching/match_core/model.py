@@ -334,7 +334,7 @@ class matching :
 
         """
         if self.y is None or len(self.y)==0:
-            raise TypeError('Please specify y variable in matching function.')
+            raise TypeError('Please specify y variable as an input in the matching function.')
 
         # 1. post-process data
         X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
@@ -361,7 +361,7 @@ class matching :
         T = self.T
 
         if self.y is None or len(self.y)==0:
-            raise TypeError('Please specify y variable in matching function.')
+            raise TypeError('Please specify y variable as an input in the matching function.')
         else:
             y = self.y[0]
             if len(self.y) > 1 :

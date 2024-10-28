@@ -100,8 +100,6 @@ def data_process_ate(match_obj, df_post_validate):
         weight = None
 
     return df_post_validate_y, weight
-
-
 def balance_check_x(match_obj,
                     X,
                     df_post,
@@ -329,3 +327,61 @@ def gen_test_data_panel(N, T, beta, ate, exp_date, unbalance=False) :
         df2 = df2.drop(drop_indices)
 
     return df2
+
+
+def psm_trim_caliper(match_obj,
+                     df_pre,
+                     caliper: float = 0.05) :
+
+    df_post = df_pre.copy()
+    if caliper > 0 :
+        df_pre['pscore_diff'] = np.abs(df_pre['pscore_treat'] - df_pre['pscore_control'])
+        valid_pair_indices = df_pre[df_pre['pscore_diff'] <= caliper].index
+        df_post = df_pre.iloc[valid_pair_indices, :].copy()
+        df_post.reset_index(inplace=True, drop=True)
+
+    # stack up all observations
+    df_post_treat = df_post[[match_obj.id + "_treat", match_obj.T + "_treat", 'pscore_treat']].copy()
+    df_post_control = df_post[[match_obj.id + "_control", match_obj.T + "_control", 'pscore_control']].copy()
+
+    df_post_treat_ = df_post_treat.rename(
+        columns={match_obj.id + "_treat" : match_obj.id, match_obj.T + "_treat" : match_obj.T, 'pscore_treat' : 'pscore'})
+    df_post_control_ = df_post_control.rename(
+        columns={match_obj.id + "_control" : match_obj.id, match_obj.T + "_control" : match_obj.T, 'pscore_control' : 'pscore'})
+
+    df_full = pd.concat([df_post_treat_, df_post_control_], axis=0, ignore_index=True)
+    df_full.drop_duplicates(subset=[match_obj.id], inplace=True, ignore_index=True)
+
+    return df_post, df_full
+
+def psm_trim_percent(match_obj,
+                     df_pre,
+                     percentage: float = 0.00) :
+    df_post = df_pre.copy()
+
+    # stack up all observations
+    df_post_treat = df_post[[match_obj.id + "_treat", match_obj.T + "_treat", 'pscore_treat']]
+    df_post_control = df_post[[match_obj.id + "_control", match_obj.T + "_control", 'pscore_control']]
+
+    df_post_treat_ = df_post_treat.rename(
+        columns={match_obj.id + "_treat" : match_obj.id, match_obj.T + "_treat" : match_obj.T, 'pscore_treat' : 'pscore'})
+    df_post_control_ = df_post_control.rename(
+        columns={match_obj.id + "_control" : match_obj.id, match_obj.T + "_control" : match_obj.T, 'pscore_control' : 'pscore'})
+
+    df_full = pd.concat([df_post_treat_, df_post_control_], axis=0, ignore_index=True)
+
+    if (percentage > 0) and (percentage < 1) :
+        p_score_ub = df_full['pscore'].quantile(q=1 - percentage / 2)
+        p_score_lb = df_full['pscore'].quantile(q=percentage / 2)
+        df_post = df_full[(df_full['pscore'] <= p_score_ub) & (df_full['pscore'] >= p_score_lb)]
+
+    elif percentage == 0 :
+        df_post = df_full
+
+    else :
+        raise TypeError('Trim percentage should a value between 0 and 1.')
+
+    df_post.reset_index(inplace=True, drop=True)
+    return df_post
+
+

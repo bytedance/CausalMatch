@@ -13,17 +13,19 @@
 # limitations under the License.
 
 import pandas as pd
-from pandas.api.types import is_numeric_dtype, is_float_dtype
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from typing import List, Dict
 from causalmatch.matching.match_core.psm import psm
 from causalmatch.matching.match_core.cem import calculate_weight, bin_cut, sample_k2k
-from causalmatch.matching.match_core.utils import data_process_bc, data_process_ate, balance_check_x,gen_test_data
+from causalmatch.matching.match_core.preprocess import preprocess,preprocess_psm
+from causalmatch.matching.match_core.utils import data_process_bc, data_process_ate, balance_check_x, gen_test_data, psm_trim_caliper, psm_trim_percent
 from causalmatch.matching.match_core.ate import ate
 from causalmatch.matching.match_core.meta_learner import s_learner_linear
 from causalmatch.matching.match_core.robust_check import sensitivity_test, placebo_treatment_estimate
+from causalmatch.matching.match_core.TableFormat import gen_fmt, fmt_2
+from statsmodels.iolib.table import SimpleTable
 
 import warnings
 
@@ -57,7 +59,7 @@ class matching :
             ID should be row-unique, i.e. one id only appear once in your dataframe input.
         """
 
-        # original input
+        # reserve for input
         self.threshold_smd = None
         self.data = data
         self.T = T
@@ -89,98 +91,17 @@ class matching :
         self.cluster_criteria = None
         self.replace = None
 
+        self.df_pre_validate = None
+        self.df_post_validate = None
+        self.lb_index = None
+        self.ub_index = None
+        self.critical_value_lb = None
+        self.critical_value_ub = None
+        self.true_ate = None
+
+
         # data-preprocess
-        self.preprocess()
-
-    def preprocess(self) :
-
-        # 1. whether T is numeric type
-        if not is_numeric_dtype(self.data[self.T]) :
-            raise TypeError('Treatment column in your dataframe is not numeric type, please transfer to numeric type.')
-
-        # 2.x and t are contained in dataframe
-        col_list = set(self.data.columns)
-        input_vars = [self.T] + self.X
-        for i in input_vars :
-            if i not in col_list :
-                raise TypeError('Variable {} is not in the input dataframe.'.format(i))
-
-        # 3. if ID column is generated
-        if self.id is None :
-            id = 'id'
-            self.data[id] = self.data.index
-            self.id = id
-        else :
-            id = self.id
-            if is_float_dtype(self.data[id]) is True :
-                warnings.warn("ID columns is float type, cannot support, convert to int type.")
-                self.data[id] = self.data[id].astype(int)
-            else :
-                self.data[id] = self.data[id]
-
-        data = self.data
-        # 4. If ID is unique, if is float
-        id_check = data.groupby(id)[id].nunique() > 1
-        if len(id_check[id_check == True]) > 0 :
-            raise TypeError('Your dataframe contains duplicate ID, please make sure ID column is unique for each row.')
-
-        # 5. If treatment or x has no variation
-        err_msg_variation = 'The feature column {} has only one value, please exclude this column from dataset.'
-        err_msg_missing = 'Column {} has missing value, please fill these missing.'
-
-        df_numeric = self.data[self.X].select_dtypes(include='number')
-        df_discrete = self.data[self.X].select_dtypes(exclude='number')
-        X_numeric = list(df_numeric.columns)
-        X_discrete = list(df_discrete.columns)
-
-        if X_numeric is not None :
-            for i in X_numeric :
-                if data[i].var() == 0 :
-                    raise TypeError(err_msg_variation.format(i))
-
-        if X_discrete is not None :
-            for i in X_discrete :
-                if data[i].value_counts().shape[0] <= 1 :
-                    raise TypeError(err_msg_variation.format(i))
-
-        # 5. If missing values exists
-        for i in self.X :
-            if data[i].isna().sum() > 0 :
-                raise TypeError(err_msg_missing.format(i))
-
-        self.df_numeric = df_numeric
-        self.df_discrete = df_discrete
-        self.X_numeric = X_numeric
-        self.X_discrete = X_discrete
-
-        return
-
-    def preprocess_psm(self) :
-
-        if (self.caliper <= 0) or (self.caliper > 1) :
-            raise TypeError(
-                'Caliper should be a number between [0,1]. If you want to keep all observation, please set caliper to 1.')
-
-        # for psm, need one-hot encoding
-        if len(self.X_discrete) > 0 :
-            data_with_categ = pd.concat([
-                self.df_numeric,  # dataset without the categorical features
-                pd.get_dummies(self.df_discrete,
-                               columns=self.X_discrete,
-                               drop_first=True)  # categorical features converted to dummies
-            ], axis=1)
-            col_name_x_expand = data_with_categ.columns
-        elif len(self.X_discrete) == 0 :
-            data_with_categ = self.df_numeric
-            col_name_x_expand = data_with_categ.columns
-        else :
-            data_with_categ = None
-            col_name_x_expand = []
-
-        self.data_with_categ = data_with_categ
-        self.col_name_x_expand = col_name_x_expand
-
-        return
+        preprocess(self)
 
     def psm(self,
             n_neighbors: int = 1,
@@ -237,25 +158,31 @@ class matching :
         self.model_list = model_list
         self.test_size = test_size
 
-
-        self.preprocess_psm()
+        preprocess_psm(self)
 
         id = self.id
         data = self.data
         T = self.T
 
-        # step 1: matching
-        data_ps, df_out_final, data_out, data_out_control, ps_model = psm(model, data, self.data_with_categ,
-                                                                 self.col_name_x_expand, T, id, n_neighbors, model_list,
-                                                                 test_size,verbose=verbose)
+        # Step 1: matching
+        data_ps, df_out_final, data_out, data_out_control, ps_model = psm(model,
+                                                                          data,
+                                                                          self.data_with_categ,
+                                                                          self.col_name_x_expand,
+                                                                          T,
+                                                                          id,
+                                                                          n_neighbors,
+                                                                          model_list,
+                                                                          test_size,
+                                                                          verbose=verbose)
 
-        # step 2: trim pairs with caliper
-        df_out_final_trim_caliper, df_out_final_post_trim = self.psm_trim_caliper(df_out_final, caliper)
+        # Step 2: trim pairs with caliper
+        df_out_final_trim_caliper, df_out_final_post_trim = psm_trim_caliper(self,df_out_final, caliper)
 
-        # step 3: trim p-score percentile
-        df_out_final_trim_percentage = self.psm_trim_percent(df_out_final_trim_caliper, trim_percentage)
+        # Step 3: trim p-score percentile
+        df_out_final_trim_percentage = psm_trim_percent(self,df_out_final_trim_caliper, trim_percentage)
 
-        # step 4: trim
+        # Step 4: trim
         if drop_duplicates is True :
             df_out_final_trim_percentage.drop_duplicates(subset=[self.id], inplace=True, ignore_index=True)
 
@@ -271,60 +198,7 @@ class matching :
         self.df_out_final_trim_percentage = df_out_final_trim_percentage
         self.col_name_x_expand = self.col_name_x_expand
 
-    def psm_trim_caliper(self,
-                         df_pre,
-                         caliper: float = 0.05) :
 
-        df_post = df_pre.copy()
-        if caliper > 0 :
-            df_pre['pscore_diff'] = np.abs(df_pre['pscore_treat'] - df_pre['pscore_control'])
-            valid_pair_indices = df_pre[df_pre['pscore_diff'] <= caliper].index
-            df_post = df_pre.iloc[valid_pair_indices, :].copy()
-            df_post.reset_index(inplace=True, drop=True)
-
-        # stack up all observations
-        df_post_treat = df_post[[self.id + "_treat", self.T + "_treat", 'pscore_treat']].copy()
-        df_post_control = df_post[[self.id + "_control", self.T + "_control", 'pscore_control']].copy()
-
-        df_post_treat_ = df_post_treat.rename(
-            columns={self.id + "_treat" : self.id, self.T + "_treat" : self.T, 'pscore_treat' : 'pscore'})
-        df_post_control_ = df_post_control.rename(
-            columns={self.id + "_control" : self.id, self.T + "_control" : self.T, 'pscore_control' : 'pscore'})
-
-        df_full = pd.concat([df_post_treat_, df_post_control_], axis=0, ignore_index=True)
-        df_full.drop_duplicates(subset=[self.id], inplace=True, ignore_index=True)
-
-        return df_post, df_full
-
-    def psm_trim_percent(self,
-                         df_pre,
-                         percentage: float = 0.00) :
-        df_post = df_pre.copy()
-
-        # stack up all observations
-        df_post_treat = df_post[[self.id + "_treat", self.T + "_treat", 'pscore_treat']]
-        df_post_control = df_post[[self.id + "_control", self.T + "_control", 'pscore_control']]
-
-        df_post_treat_ = df_post_treat.rename(
-            columns={self.id + "_treat" : self.id, self.T + "_treat" : self.T, 'pscore_treat' : 'pscore'})
-        df_post_control_ = df_post_control.rename(
-            columns={self.id + "_control" : self.id, self.T + "_control" : self.T, 'pscore_control' : 'pscore'})
-
-        df_full = pd.concat([df_post_treat_, df_post_control_], axis=0, ignore_index=True)
-
-        if (percentage > 0) and (percentage < 1) :
-            p_score_ub = df_full['pscore'].quantile(q=1 - percentage / 2)
-            p_score_lb = df_full['pscore'].quantile(q=percentage / 2)
-            df_post = df_full[(df_full['pscore'] <= p_score_ub) & (df_full['pscore'] >= p_score_lb)]
-
-        elif percentage == 0 :
-            df_post = df_full
-
-        else :
-            raise TypeError('Trim percentage should a value between 0 and 1.')
-
-        df_post.reset_index(inplace=True, drop=True)
-        return df_post
 
     def cem(self,
             n_bins: int = 5,
@@ -453,8 +327,7 @@ class matching :
         Returns
         -------
         df_param: Pandas dataframe.
-            Including 'y', 'ate','p-value'
-            columns.
+            Including 'y', 'ate','p-value' columns.
             'y': name of the dependent variable.
             'ate': treatment effect coefficient.
             'p-value': treatment effect p-value.
@@ -465,6 +338,8 @@ class matching :
 
         # 1. post-process data
         X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
+        self.df_post_validate = df_post_validate
+        self.df_pre_validate = df_pre_validate
 
         # 2. OLS and get treatment effect
         df_param = ate(self, use_weight, df_post_validate)
@@ -494,6 +369,9 @@ class matching :
 
         # 1. post-process data
         X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
+        self.df_post_validate = df_post_validate
+        self.df_pre_validate = df_pre_validate
+
         df_post_validate_y, weight = data_process_ate(self, df_post_validate)
 
         # 2. Single learner
@@ -508,9 +386,9 @@ class matching :
         return hte_linear
 
     def balance_check(self,
-                      include_discrete=False,
-                      threshold_smd=0.1,
-                      threshold_vr=2):
+                      include_discrete = False,
+                      threshold_smd = 0.1,
+                      threshold_vr = 2):
 
         """
         Balance check function post matching.
@@ -539,7 +417,11 @@ class matching :
         """
         self.threshold_smd = threshold_smd
         self.threshold_vr = threshold_vr
+
         X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, include_discrete)
+        self.df_post_validate = df_post_validate
+        self.df_pre_validate = df_pre_validate
+
 
         smd_match_df_post, smd_match_df_pre = balance_check_x(self, X_balance_check, df_post_validate, df_pre_validate)
 
@@ -584,7 +466,7 @@ class matching :
         for y_i in self.y:
             df_res = sensitivity_test(self, gamma, y_i)
             df_res['y'] = y_i
-            df_res_full = df_res_full._append(df_res, ignore_index=True)
+            df_res_full = pd.concat([df_res_full, df_res], ignore_index=True)
 
         return df_res_full
 
@@ -632,10 +514,115 @@ class matching :
         ub_index = np.round(b * (1 - 0.025))
         critical_value_lb = np.sort(np.array(ate_array))[int(lb_index)]
         critical_value_ub = np.sort(np.array(ate_array))[int(ub_index)]
-        print('The true ATE is: ', true_ate)
-        print('The empirical confidence interval is: ', critical_value_lb, critical_value_ub)
+
+        self.true_ate = true_ate
+        self.lb_index = lb_index
+        self.ub_index = ub_index
+        self.critical_value_lb = critical_value_lb
+        self.critical_value_ub = critical_value_ub
 
         return ate_array
+
+
+    def robust_check(self,
+                     gamma: List[int],
+                     n: int = 1000,
+                     b: int = 100):
+
+        if len(self.y) > 1 :
+            raise TypeError(
+                'Placebo test only support estimator for one y variable, '
+                'please restrict your y input to a list with only one y variable.')
+
+        if (self.df_post_validate is None) or (self.df_pre_validate is None):
+            X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)
+        else:
+            df_post_validate = self.df_post_validate
+            df_pre_validate = self.df_pre_validate
+
+        # 1. The remaining fraction of observations
+        remain_sample_fraction = df_post_validate.shape[0] / df_pre_validate.shape[0]
+        remain_sample_fraction_t = df_post_validate[df_post_validate[self.T] == 1].shape[0] / \
+                                   df_pre_validate[df_pre_validate[self.T] == 1].shape[0]
+        remain_sample_fraction_c = df_post_validate[df_post_validate[self.T] != 1].shape[0] / \
+                                   df_pre_validate[df_pre_validate[self.T] != 1].shape[0]
+
+        b_pass_fraction_test = 'Pass' if remain_sample_fraction >= 0.9 else 'Fail'
+        b_pass_fraction_test_t = 'Pass' if remain_sample_fraction_t >= 0.9 else 'Fail'
+        b_pass_fraction_test_c = 'Pass' if remain_sample_fraction_c >= 0.9 else 'Fail'
+
+
+        # 2. Which observation from control group has been used multiple times
+        df_repeat_ = pd.DataFrame(df_post_validate[df_post_validate[self.T]!=1][self.id].value_counts())
+        df_repeat_.reset_index(inplace=True)
+        max_repeat_time = df_repeat_[self.id].max()
+        max_repeat_control_id_list = list(df_repeat_[df_repeat_[self.id] == max_repeat_time]['index'])
+        max_repeat_control_id_list_str = ''.join(str(e) + ',' for e in max_repeat_control_id_list)
+
+
+        # 3. Gamma sensitivity test, only works for PSM
+        if self.method == 'psm':
+            if gamma is None:
+                gamma_ = [1,1.5,2,2.5,3]
+            else:
+                gamma_ = gamma
+
+            df_gamma = self.sensitivity_test(gamma=gamma_)
+            df_gamma_ = df_gamma[~df_gamma['z-score upper bound'].isna()].groupby(['y']).max()['gamma']
+            gamma_test_stat = df_gamma_.values[0]
+        else:
+            gamma_test_stat = np.nan
+
+        b_pass_gamma_test = 'Fail' if (gamma_test_stat <= 1 or gamma_test_stat==np.nan) else 'Pass'
+
+        # TODO: 4. Refutation test, keep adding
+        pseudo_ate_list = self.placebo_treatment(n=n,b=b)
+        critical_val = ['{:.2f}'.format(self.critical_value_lb),'{:.2f}'.format(self.critical_value_ub)]
+        critical_val_str = ''.join(str(e) + ',' for e in critical_val)
+        b_pass_placebo_test = 'Fail' if (self.critical_value_lb <= self.ate().iloc[0]['ate'] and self.critical_value_ub >= self.ate().iloc[0]['ate']) else 'Pass'
+
+        summary_stat = {"y" : self.y[0],
+                        "ATE": '{:.2f}'.format(self.ate().iloc[0]['ate']),
+                        "remain_sample_fraction": '{:.2f}%'.format(remain_sample_fraction*100),
+                        "remain_sample_fraction_t": '{:.2f}%'.format(remain_sample_fraction_t*100),
+                        "remain_sample_fraction_c": '{:.2f}%'.format(remain_sample_fraction_c*100),
+                        "max_repeat_time": max_repeat_time,
+                        "max_repeat_control_id_list_str": max_repeat_control_id_list_str,
+                        "gamma_test_stat": gamma_test_stat,
+                        "conf. interval": critical_val_str}
+
+
+        # 5. Simpletable should be able to handle the formatting
+        params_data_ = (['{:.2f}'.format(self.ate().iloc[0]['ate']), '{:.2f}%'.format(self.ate().p_val[0])],
+                        [' ', ' '],
+                        ['{:.2f}%'.format(remain_sample_fraction * 100), b_pass_fraction_test],
+                        ['{:.2f}%'.format(remain_sample_fraction_t * 100), b_pass_fraction_test_t],
+                        ['{:.2f}%'.format(remain_sample_fraction_c * 100), b_pass_fraction_test_c],
+                        [max_repeat_time, '-'],
+                        [gamma_test_stat, b_pass_gamma_test],
+                        [critical_val_str, b_pass_placebo_test])
+
+        params_stubs_ = ['Average Treatment Effect: '
+            , ' '
+            , '1. Total % of obs remained: '
+            , ' -- Treated % obs remained: '
+            , ' -- Control % obs remained: '
+            , '    -- The most repeated times of a control obs:'
+            , '2. Sensitivity test result, Gamma statistics'
+            , '3. Placebo Test Result conf. interval']
+
+        gen_title = 'Robustness Check Output Table for Dep. Variable {}'.format(self.y[0])
+        gen_header = ['coef', 'P>|t| ']
+
+        gen_table_parm = SimpleTable(params_data_,
+                                     gen_header,
+                                     params_stubs_,
+                                     title=gen_title,
+                                     txt_fmt=gen_fmt)
+
+        print(gen_table_parm)
+
+        return
 
 
 if __name__ == "__main__" :
@@ -647,7 +634,6 @@ if __name__ == "__main__" :
     X = ['c_1', 'c_2', 'c_3']
     y = ['y', 'y2']
     id = 'user_id'
-
     T = 'treatment'
 
     # STEP 1: initialize matching object

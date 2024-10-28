@@ -4,7 +4,7 @@ def readme():
         return f.read()
 
 dependencies = [
-    'pandas>=1.3.4, <=2.2.0',
+    'pandas>=1.3.4, <=1.3.5',
     'numpy>=1.3.0, <=1.26.4'
 ]
 

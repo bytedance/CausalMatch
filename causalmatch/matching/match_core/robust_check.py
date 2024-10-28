@@ -1,16 +1,17 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
+from causalmatch.matching.match_core.preprocess import preprocess
 import copy
 
-def sensitivity_test(match_obj, gamma, y_i):
 
+def sensitivity_test(match_obj, gamma, y_i) :
     id_list_t = match_obj.df_out_final['user_id_treat'].to_list()
     id_list_c = match_obj.df_out_final['user_id_control'].to_list()
 
     df_pair = pd.DataFrame()
     # ------------------------------------------------------------------------------
-    # BUGFIX: 20241018
+    # BUGFIX: 20241018, Xiaoyu Zhou
     # df_pair['y_t'], df_pair['y_c'] = match_obj.data.iloc[id_list_t][y_i].values, match_obj.data.iloc[id_list_c][y_i].values
     df_pair['y_t'] = match_obj.data[match_obj.data[match_obj.id].isin(id_list_t)][y_i].values
     df_pair['user_id_treat'] = id_list_t
@@ -31,11 +32,11 @@ def sensitivity_test(match_obj, gamma, y_i):
     test_stat = df_pair['dcz'].sum()
 
     cols = ['Wilcoxon-statistic', 'gamma'
-            , 'stat upper bound', 'stat_lower_bound'
-            , 'z-score upper bound', 'z-score lower bound'
-            , 'p-val upper bound', 'p-val lower bound']
+        , 'stat upper bound', 'stat_lower_bound'
+        , 'z-score upper bound', 'z-score lower bound'
+        , 'p-val upper bound', 'p-val lower bound']
     lst = []
-    for gamma_i in gamma:
+    for gamma_i in gamma :
         df_pair['ps_plus'] = gamma_i / (1 + gamma_i)
         df_pair['ps_plus'][(df_pair['cs1'] == 0) & (df_pair['cs2'] == 0)] = 0
         df_pair['ps_plus'][(df_pair['cs1'] == 1) & (df_pair['cs2'] == 1)] = 1
@@ -54,7 +55,7 @@ def sensitivity_test(match_obj, gamma, y_i):
         deviate_ub = (df_pair['dcz'].sum() - gamma_1_t_plus) / np.sqrt(var_t_plus)
         deviate_lb = (df_pair['dcz'].sum() - gamma_1_t_minus) / np.sqrt(var_t_plus)
 
-        if test_stat > round(gamma_1_t_plus, 2):
+        if test_stat > round(gamma_1_t_plus, 2) :
             lst.append([test_stat
                            , gamma_i
                            , round(gamma_1_t_plus, 2)
@@ -63,7 +64,7 @@ def sensitivity_test(match_obj, gamma, y_i):
                            , deviate_lb
                            , np.round(norm.sf(abs(deviate_ub)), 5)
                            , np.round(norm.sf(abs(deviate_lb)), 5)])
-        else:
+        else :
             lst.append([test_stat
                            , gamma_i
                            , round(gamma_1_t_plus, 2)
@@ -78,8 +79,6 @@ def sensitivity_test(match_obj, gamma, y_i):
 
 
 def placebo_treatment_estimate(match_obj, n, b):
-
-
     np.random.seed(123456)
 
     # Sample sub data from original dataset
@@ -91,7 +90,7 @@ def placebo_treatment_estimate(match_obj, n, b):
     ate_list = []
 
     pseudo_t_list = []
-    for i in range(b):
+    for i in range(b) :
         t_i_name = 't_{}'.format(i)
         pseudo_t_list.append(t_i_name)
         data_b[t_i_name] = rand_discrete[:, i]
@@ -101,8 +100,7 @@ def placebo_treatment_estimate(match_obj, n, b):
         # specify parameter change with loop
         match_obj_i.data = data_b
         match_obj_i.T = t_i_name
-        match_obj_i.preprocess()
-
+        preprocess(match_obj_i)
         match_obj_i.psm(n_neighbors=1,
                         model=match_obj.model,
                         caliper=match_obj.caliper,

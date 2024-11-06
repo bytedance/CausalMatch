@@ -15,7 +15,9 @@
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
+import scipy as scipy
 import warnings
+from distutils.version import LooseVersion, StrictVersion
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 def data_process_bc(match_obj,
@@ -151,9 +153,13 @@ def smd_x(col, df, treat_var, threshold_smd, threshold_vr) :
                                                              threshold_vr)
 
     # Performs the two-sample Kolmogorov-Smirnov test for goodness of fit.
-    ks_stats, pvalue = stats.ks_2samp(c_array,
-                                      t_array,
-                                      method='asymp')
+    if LooseVersion(scipy.__version__) >= LooseVersion('1.12.0') :
+        ks_stats, pvalue = stats.ks_2samp(c_array,
+                                          t_array,
+                                          method='asymp')
+    else:
+        ks_stats, pvalue = stats.ks_2samp(c_array,
+                                          t_array)
 
     # Perform Levene test for equal variances.
     _, levene_p = stats.levene(c_array, t_array)

@@ -6,17 +6,20 @@ import copy
 
 
 def sensitivity_test(match_obj, gamma, y_i) :
-    id_list_t = match_obj.df_out_final['user_id_treat'].to_list()
-    id_list_c = match_obj.df_out_final['user_id_control'].to_list()
+    id_treat = match_obj.id + "_treat"
+    id_control = match_obj.id + "control"
+
+    id_list_t = match_obj.df_out_final[id_treat].to_list()
+    id_list_c = match_obj.df_out_final[id_control].to_list()
 
     df_pair = pd.DataFrame()
     # ------------------------------------------------------------------------------
     # BUGFIX: 20241018, Xiaoyu Zhou
     # df_pair['y_t'], df_pair['y_c'] = match_obj.data.iloc[id_list_t][y_i].values, match_obj.data.iloc[id_list_c][y_i].values
     df_pair['y_t'] = match_obj.data[match_obj.data[match_obj.id].isin(id_list_t)][y_i].values
-    df_pair['user_id_treat'] = id_list_t
-    df_pair['user_id_control'] = id_list_c
-    df_pair_ = df_pair.merge(match_obj.data[[match_obj.id, y_i]], how='left', left_on='user_id_control',
+    df_pair[id_treat] = id_list_t
+    df_pair[id_control] = id_list_c
+    df_pair_ = df_pair.merge(match_obj.data[[match_obj.id, y_i]], how='left', left_on=id_control,
                              right_on=match_obj.id)
     df_pair_.rename(columns={y_i : "y_c"}, inplace=True)
     df_pair_.drop(columns=match_obj.id, inplace=True)

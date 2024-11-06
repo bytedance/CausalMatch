@@ -98,6 +98,7 @@ class matching :
         self.critical_value_lb = None
         self.critical_value_ub = None
         self.true_ate = None
+        self.ps_model = None
 
 
         # data-preprocess
@@ -500,7 +501,7 @@ class matching :
         if len(self.y) > 1 :
             raise TypeError(
                 'Placebo test only support estimator for one y variable, '
-                'please restrict your y input to a list with only one y variable.')
+                "please restrict your y input to a list with length of 1, for example, change 'y=[y0,y1]' to 'y=[y0]' .")
 
         if self.y is None:
             raise TypeError('Please input one y variable.')
@@ -532,7 +533,7 @@ class matching :
         if len(self.y) > 1 :
             raise TypeError(
                 'Placebo test only support estimator for one y variable, '
-                'please restrict your y input to a list with only one y variable.')
+                "please restrict your y input to a list with length of 1, for example, change 'y=[y0,y1]' to 'y=[y0]' .")
 
         if (self.df_post_validate is None) or (self.df_pre_validate is None):
             X_balance_check, df_post_validate, df_pre_validate = data_process_bc(self, True)

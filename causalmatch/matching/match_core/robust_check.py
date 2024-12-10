@@ -7,7 +7,7 @@ import copy
 
 def sensitivity_test(match_obj, gamma, y_i) :
     id_treat = match_obj.id + "_treat"
-    id_control = match_obj.id + "control"
+    id_control = match_obj.id + "_control"
 
     id_list_t = match_obj.df_out_final[id_treat].to_list()
     id_list_c = match_obj.df_out_final[id_control].to_list()

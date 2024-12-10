@@ -10,7 +10,7 @@ dependencies = [
 
 setup(
     name="causalmatch",
-    version='0.0.3',
+    version='0.0.4',
     author="Xiaoyu Zhou",
     author_email="xiaoyuzhou@bytedance.com",
     url='https://github.com/bytedance/CausalMatch',

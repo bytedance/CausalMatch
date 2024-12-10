@@ -165,6 +165,7 @@ detection_tool.py
 .idea/
 .DS_Store
 notebooks/.DS_Store
+notebooks/new_feature.ipynb
 causalmatch/.DS_Store
 causalmatch/matching/.DS_Store
 causalmatch/matching/match_core/.DS_Store

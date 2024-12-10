@@ -51,7 +51,7 @@ If you have any questions, feel free to raise them in the issues section.
 
 Install the latest release from [PyPI]:
 ```
-pip install causalmatch==0.0.2
+pip install causalmatch==0.0.4
 ```
 
 

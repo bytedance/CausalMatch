@@ -45,8 +45,6 @@ If you have any questions, feel free to raise them in the issues section.
 
 </details>
 
-</details>
-
 # Getting Started
 
 ## Installation
@@ -68,7 +66,6 @@ pip install causalmatch==0.0.4
   ```Python
 from causalmatch import matching, gen_test_data
 from sklearn.ensemble import GradientBoostingClassifier
-import statsmodels.api as sm
 
 df = gen_test_data(n = 10000, c_ratio=0.5)
 df.head()
@@ -76,14 +73,13 @@ df.head()
 
 X = ['c_1', 'c_2', 'c_3', 'd_1', 'gender']
 y = ['y', 'y2']
+T = 'treatment' 
 id = 'user_id'
-T = 'treatment' # treatment variable must be binary with 0/1 values
-
 # STEP 1: initialize object
 match_obj = matching(data = df,     
                      T = T,
                      X = X,
-                     y = y, # identify dependent variable if want to call ATE function
+                     y = y, 
                      id = id)
 
 # STEP 2: propensity score matching
@@ -105,13 +101,9 @@ print(match_obj.ate())
   ```Python
 # STEP 0: define all classification model you need
 from causalmatch import matching
-import pandas as pd
-import numpy as np
-import statsmodels.api as sm
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
-from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier

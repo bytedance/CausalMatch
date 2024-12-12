@@ -35,9 +35,12 @@ Our toolkit possess the following features:
 If you'd like to contribute to this project, please contact xiaoyuzhou@bytedance.com. 
 If you have any questions, feel free to raise them in the issues section.
 
-**August 20, 2024:** Release v0.0.2, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.2)
+**December 10, 2024:** Release v0.0.4, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.4)
+
 
 <details><summary>Previous releases</summary>
+
+**August 20, 2024:** Release v0.0.2, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.2)
 
 **August 2, 2024:** Release 0.0.1.
 
@@ -64,7 +67,7 @@ pip install causalmatch==0.0.4
   * Simple PSM
 
   ```Python
-from causalmatch import matching,gen_test_data
+from causalmatch import matching, gen_test_data
 from sklearn.ensemble import GradientBoostingClassifier
 import statsmodels.api as sm
 
@@ -81,31 +84,21 @@ T = 'treatment' # treatment variable must be binary with 0/1 values
 match_obj = matching(data = df,     
                      T = T,
                      X = X,
+                     y = y, # identify dependent variable if want to call ATE function
                      id = id)
 
 # STEP 2: propensity score matching
 
 match_obj.psm(n_neighbors = 1,                      # number of neighbors
-                model = GradientBoostingClassifier(), # p-score model
-                trim_percentage = 0.1,                # trim x percent of data based on propensity score
-                caliper = 0.1)                        # caliper for p-score diff
+              model = GradientBoostingClassifier(), # p-score model
+              trim_percentage = 0.1,                # trim x percent of data based on propensity score
+              caliper = 0.1)                        # caliper for p-score diff
 
 # STEP 3: balance check after propensity score matching
 match_obj.balance_check(include_discrete = True)
 
-
-# STEP 4: obtain output dataframe, and merge X and y
-df_out = match_obj.df_out_final_post_trim.merge(df[y + X + [id]], how='left', on = id)
-
-# STEP 5: calculate average treatment effect on treated
-
-X_mat = df_out[T]
-y_mat = df_out[y]
-
-X_mat = sm.add_constant(X_mat)
-model = sm.OLS(y_mat,X_mat)
-results = model.fit()
-print(results.params)
+# STEP 4: obtain average partial effect 
+print(match_obj.ate())
   ```
 
   * PSM with multiple p-score models and select the best one based on f1 score 

@@ -57,6 +57,35 @@ class matching :
         :param id: str, default none.
             ID column, can be user id or device id or any level id that you want to match.
             ID should be row-unique, i.e. one id only appear once in your dataframe input.
+
+        Returns
+        -------
+        None
+            An initialized object.
+
+        Examples
+        --------
+        >>> df, rand_continuous, rand_true_param, param_te , rand_treatment, rand_error = gen_test_data(n = 10000, c_ratio=0.5)
+        ... X = ['c_1', 'c_2', 'c_3', 'd_1', 'gender']
+        ... y = ['y', 'y2']
+        ... id = 'user_id'
+        ... T = 'treatment'
+        >>> df
+                c_1        c_2       c_3    d_1    gender  d_3 treatment      y        y2       user_id
+            0 0.373012  0.447997  0.129441  cat    female  9.0   0.0      4.318203   0.310434       0
+            1 0.859879  0.820388  0.352054  apple  cat5    7.0   0.0      9.261949   0.703410       1
+            2 0.228887  0.776784  0.594784  dog    female  7.0   1.0      5.576691  -1.560741       2
+            3 0.137554  0.852900  0.235507  bee    dog     3.0   0.0      7.046761   1.862262       3
+            4 0.146227  0.589869  0.574012  apple  dog     5.0   1.0      6.351161   0.441810       4
+
+        ** Initialize a matching object **
+        >>> match_obj = matching(data = df,
+        ...                      T = T,
+        ...                      X = X,
+        ...                      y = y,
+        ...                      id = id)
+
+
         """
 
         # reserve for input
@@ -121,6 +150,7 @@ class matching :
         :param n_neighbors: int, default is 1
             The number of neighbors you want to match. Current version only support
             NN method, so if you set n_neighbors=2. then 1 treatment obs match 2 control obs.
+
         :param model: sklearn model, default LogisticRegression(random_state=0, C=1e6).
             We support any sklearn classification model that can use "predict_proba"
             function to calculate p-score. You can also try following models:
@@ -133,22 +163,67 @@ class matching :
                 ps_model = GradientBoostingClassifier()
                 ps_model = LGBMClassifier()
                 ps_model = XGBClassifier()
+
         :param caliper: float, default is 0.05
             If p-score diff between treat and control is greater than caliper,
             then trim this pair.
+
         :param trim_percentage: float, default is 0
             Must be smaller than 1. The percentage of obs to be trimmed. If equals 0.02,
             means trim p-score distribution's left 1% and right 1%'s observations.
 
+        :param model_list: List[str], default is None
+            Define all p-score models you want to fit in a list to pass to model.
+
+        :param test_size: float, default is 0
+            When train a p-score model using train-test split, what portion of test sample we use.
+
+        :param verbose: boolean, default is False
+            If set to True, track progress of the psm fitting procedure.
+
         Returns
         -------
         df_out_final: pandas dataframe
-             Matched Dataframe results.Include columns ['user_id_treat', 'treatment_treat', 'pscore_treat',
-                     'user_id_control','treatment_control', 'pscore_control',
-                     'pscore_diff']
+             Matched Dataframe results store with pairs. Include columns ['user_id_treat', 'treatment_treat', 'pscore_treat',
+             'user_id_control','treatment_control', 'pscore_control',
+             'pscore_diff']
         df_out_final_post_trim: pandas dataframe
-             Matched Dataframe results after trimming. If caliper=0 and trim_percentage=0,
+             Matched Dataframe results after trimming, stack up all treatment
+             and control observations. If caliper=0 and trim_percentage=0,
              df_out_final_post_trim is identical to df_out_final.
+
+        Examples
+        --------
+        In this case, we are fitting a p-score model using GradientBoostingClassifier with n_neighbors equals 1,
+        trim greatest and lowest 5% p-score observations, and observation pairs with caliper (treat vs control
+        p-score diff) > 0.1:
+        >>> match_obj.psm(n_neighbors = 1,
+        ...              model = GradientBoostingClassifier(),
+        ...              trim_percentage = 0.1,
+        ...              caliper = 0.1,
+        ...              verbose = True)
+
+        In this case, we are fitting a p-score model using LogisticRegression with n_neighbors equals 1, and keep
+        all treated obserbations:
+        >>> match_obj.psm(n_neighbors = 1,
+        ...               model = LogisticRegression(),
+        ...               trim_percentage = 0,
+        ...               caliper = 1)
+
+        In this case, we are fitting multiple p-score models and use the one with greatest f1 score:
+        >>> ps_model1 = LogisticRegression(C=1e6)
+        ... ps_model2 = SVC(probability=True)
+        ... ps_model3 = GaussianNB()
+        ... ps_model4 = KNeighborsClassifier()
+        ... ps_model5 = DecisionTreeClassifier()
+        ... ps_model6 = RandomForestClassifier()
+        ... model_list = [ps_model1, ps_model2, ps_model3,
+        ...               ps_model4, ps_model5, ps_model6]
+        ... match_obj.psm(n_neighbors = 1,
+        ...               model_list = model_list,
+        ...               trim_percentage = 0,
+        ...               caliper = 1,
+        ...               test_size = 0.2)
         """
         # Data preprocessing for psm only
         self.method = "psm"
@@ -249,19 +324,41 @@ class matching :
 
         Examples
         --------
-            from matching import matching
-            match_obj_1 = matching(data = df,
-                                     T = 'treatment',
-                                     X = ['c_1','c_2','d_1', 'gender', 'd_3'],
-                                     id = 'user_id')
+        First, generate synthetic data as follows:
+        >>> df
+                c_1        c_2       c_3    d_1    gender  d_3 treatment      y        y2       user_id
+            0 0.373012  0.447997  0.129441  cat    female  9.0   0.0      4.318203   0.310434       0
+            1 0.859879  0.820388  0.352054  apple  cat5    7.0   0.0      9.261949   0.703410       1
+            2 0.228887  0.776784  0.594784  dog    female  7.0   1.0      5.576691  -1.560741       2
+            3 0.137554  0.852900  0.235507  bee    dog     3.0   0.0      7.046761   1.862262       3
+            4 0.146227  0.589869  0.574012  apple  dog     5.0   1.0      6.351161   0.441810       4
 
-            match_obj_1.cem(n_bins=5,
-                         break_points = {'c_1': [-1, 0.3, 0.6, 2]},
-                         cluster_criteria = {'d_1': [['apple','pear'],['cat','dog'],['bee']],
-                                            'd_3': [['0.0','1.0','2.0'],
-                                                    ['3.0','4.0','5.0'],
-                                                    ['6.0','7.0','8.0','9.0']]})
-            match_obj_1.df_out_final.shape
+        Initializing the matching object and fit a simple CEM model:
+        >>> match_obj_cem = matching(data = df,
+        ...                          y = ['y'],
+        ...                          T = 'treatment',
+        ...                          X = ['c_1','d_1','d_3'],
+        ...                          id = 'user_id')
+        ... match_obj_cem.cem(n_bins = 10, k2k = True)
+        'n_bins=10' means for all specified continuous variables (i.e, column type is int or float,
+        and in X = ['c_1','d_1','d_3'] only 'c_1' is continuous variable),
+        we create 10 bins for each of them using percentile as cut point. For discrete variables ['d_1','d_3'],
+        we use each enum value as one bin. Finally, we set k2k=True to make sure we have
+        the same amount of treatment and control observations.
+
+        In this example, fit a simple CEM model with customized bin:
+        >>> match_obj_cem.cem(n_bins = 10,
+        ...                   # continuous feature c_1 break down to 5 bins based on customized breakpoing
+        ...                   # ->[-inf,-1),[-1, 0.3), [0.3, 0.6), [0.6, 2),[2,inf]
+        ...                   break_points = {'c_1': [-1, 0.3, 0.6, 2]},
+        ...                   # discrete/string features group to a bigger group:
+        ...                   # -- 1. d_1 has 5 values, customize to a 3 value group
+        ...                   # -- 2. d_3 has 10 values, customize to a 3 value group
+        ...                   cluster_criteria = {'d_1': [['apple','pear'],['cat','dog'],['bee']],
+        ...                                       'd_3': [['0.0','1.0','2.0'],
+        ...                                               ['3.0','4.0','5.0'],
+        ...                                               ['6.0','7.0','8.0','9.0']]},
+        ...                   k2k = True)
         """
 
         self.method = "cem"
@@ -333,6 +430,15 @@ class matching :
             'ate': treatment effect coefficient.
             'p-value': treatment effect p-value.
 
+        Examples
+        --------
+        This function is used after you have fit the matching model:
+        >>> # STEP 1: initialize matching object
+        ... match_obj_cem = matching(data = df, y = ['y'], T = 'treatment', X = ['c_1','d_1','d_3'], id = 'user_id')
+        ... # STEP 2: coarsened exact matching
+        ... match_obj_cem.cem(n_bins = 10, k2k = True)
+        ... # STEP 3: obtain average partial effect
+        ... print(match_obj_cem.ate())
         """
         if self.y is None or len(self.y)==0:
             raise TypeError('Please specify y variable as an input in the matching function.')
@@ -357,6 +463,13 @@ class matching :
         Returns
         -------
         hte_linear: 2D Numpy array with shape N*1.
+
+        Examples
+        --------
+        This function is used after you have fit the matching model:
+        >>> hte_linear = match_obj.hte()
+        This will generate obtain heterogeneous treatment effect based on single learner linear model.
+
         """
 
         T = self.T
@@ -415,6 +528,15 @@ class matching :
             Pre matching balance check.
             Including 'covariates', 'pre treatment mean','pre control mean', SMD, two-sample t-test
             result test columns.
+
+        Examples
+        --------
+        In this case, after fitting the matching object, we generate two-sample t-test
+        result using :
+        >>> df_post, df_pre = match_obj.balance_check(include_discrete = True)
+        This will generate obtain two pandas dataframe:
+        'df_post': two sample t-test on X variables after matching.
+        'df_pre': two sample t-test on X variables before matching.
         """
         self.threshold_smd = threshold_smd
         self.threshold_vr = threshold_vr
@@ -456,6 +578,22 @@ class matching :
             The 'z-score lower bound' column is the lower bound z-score for the inferenced quantities,
             The 'y' column indicates which y is computed,
 
+        Examples
+        --------
+        In this case, after fitting the matching object, we generate gamma test results
+        by setting gamma values to 1, 1.5, 2, 2.5. This test is used to decide if there is a hidden confounder,
+        how big it can be so it can affect self-selection probability, and affect ATT. The greated the gamma,
+        the less sensitive the result can be:
+
+        >>> df_sensitivity_test = match_obj.sensitivity_test(gamma = [1,1.5,2,2.5])
+          Wilcoxon-statistic  gamma stat  stat_upper_bound  stat_lower_bound  z-score-upper-bound z-score-lower-bound p-val-upper-bound p-val-lower-bound  y
+        0     7814466.0          1.0          6496126.50       6496126.50       12.548218           12.548218             0.00000             0.00000    y
+        1     7814466.0          1.5          7795351.80       5196901.20       0.185684            25.428257             0.42635             0.00000    y
+        2     7814466.0          2.0          8661502.00       4330751.00          NaN                 NaN                   NaN                NaN      y
+        3     7814466.0          2.5          9280180.71       3712072.29          NaN                 NaN                   NaN                NaN      y
+
+        In this example, Wilcoxon-statistic start to fall out of upper bound and lower bound
+        when gamme equals 2, indicating the ATT result is not quite robust.
         """
         if self.method != 'psm':
             raise TypeError('This function only supports psm method.')
@@ -490,6 +628,8 @@ class matching :
         Returns
         -------
         ate: Numpy array to store ATE estimate for each bootstrap sample with length b X 1.
+        self.critical_value_lb: left side empirical critical value on 2.5%
+        self.critical_value_ub: right side empirical critical value on 2.5%
 
         """
         if self.method != 'psm':
@@ -505,7 +645,6 @@ class matching :
 
         if self.y is None:
             raise TypeError('Please input one y variable.')
-
 
         true_ate = self.ate().iloc[0]['ate']
         ate_array = placebo_treatment_estimate(self, n, b)
@@ -524,12 +663,55 @@ class matching :
 
         return ate_array
 
-
     def robust_check(self,
                      gamma: List[int],
                      n: int = 1000,
                      b: int = 100):
+        """
+        Summary information on all robustness test this package provide, only
+        works for PSM.
 
+        Parameters
+        ----------
+        :param gamma: List[int], must input, parameter used for Wilcoxon-statistic.
+            Gamma measures the odds of treatment that is up to gamma times greater
+            than the odds for another subject. When Gamma equals to 1, everyone has
+            the same chance of receiving the treatment.
+
+        :param n: int, must input, parameter used for placebo test.
+            Number of items from x axis to return, i.e how many rows are sample with replacement
+            from original dataframe.
+        :param b: int, must input, parameter used for placebo test.
+            The number of bootstrap sample, default equals 100.
+
+        Returns
+        -------
+        Summarized information on the robustness performance of PSM estimator.
+
+        Examples
+        --------
+        In this case, after fitting the matching object, we generate gamma test results
+        by setting gamma values to 1, 1.5, 2, 2.5. This test is used to decide if there is a hidden confounder,
+        how big it can be so it can affect self-selection probability, and affect ATT. The greated the gamma,
+        the less sensitive the result can be:
+
+        >>> match_obj.robust_check(gamma)
+
+                     Robustness Check Output Table for Dep. Variable y
+        ============================================================================
+                                                                    coef    P>|t|
+          Average Treatment Effect:                                 0.52     0.00%
+
+          1. Total % of obs remained:                            101.94%      Pass
+           -- Treated % obs remained:                            100.00%      Pass
+           -- Control % obs remained:                            103.96%      Pass
+              -- The most repeated times of a control obs:             9         -
+          2. Sensitivity test result, Gamma statistics               1.0      Fail
+          3. Placebo Test Result conf. interval              -0.32,0.28,      Pass
+        In this example, Wilcoxon-statistic start to fall out of upper bound and lower bound
+        when gamme equals 2, indicating the ATT result is not quite robust.
+
+        """
         if len(self.y) > 1 :
             raise TypeError(
                 'Placebo test only support estimator for one y variable, '

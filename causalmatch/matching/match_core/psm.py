@@ -46,7 +46,6 @@ def psm(model,
                                                             test_size=test_size,
                                                             random_state=42)
         if model_list is not None:
-
             for model in model_list:
                 ps_model = model.fit(X_train, y_train)
                 y_pred = ps_model.predict(X_test)

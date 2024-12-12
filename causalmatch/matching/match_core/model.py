@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import pandas as pd
-
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from typing import List, Dict
@@ -26,7 +25,6 @@ from causalmatch.matching.match_core.meta_learner import s_learner_linear
 from causalmatch.matching.match_core.robust_check import sensitivity_test, placebo_treatment_estimate
 from causalmatch.matching.match_core.TableFormat import gen_fmt, fmt_2
 from statsmodels.iolib.table import SimpleTable
-
 import warnings
 
 

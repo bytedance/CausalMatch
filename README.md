@@ -16,7 +16,6 @@ Our toolkit possess the following features:
 * Maintain flexibility in modeling the propensity score model (via various machine learning classification models), while preserving the causal interpretation of the learned model and often offering valid confidence intervals
 * Use a unified API
 * Build on standard Python packages for Machine Learning and Data Analysis
-
 [//]: # (For information on use cases and background material on causal inference and heterogeneous treatment effects see our webpage at [webpage here])
 
 <details>
@@ -145,7 +144,6 @@ df_out = match_obj.df_out_final_post_trim.merge(df[y + X + [id]], how='left', on
 </details>
 
 
-
 <details>
   <summary>Coarsened Exact Matching (click to expand)</summary>
 
@@ -194,3 +192,6 @@ S. Wager, S. Athey.
 [*Journal of the American Statistical Association, 113:523, 1228-1242*](https://www.tandfonline.com/doi/citedby/10.1080/01621459.2017.1319839), 2018.
 
 V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey. **Double Machine Learning for Treatment and Causal Parameters.** [*ArXiv preprint arXiv:1608.00060*](https://arxiv.org/abs/1608.00060), 2016.
+
+Bajari, P., Burdick, B., Imbens, G. W., Masoero, L., McQueen, J., Richardson, T., & Rosen, I. M. (2021). 
+**Multiple randomization designs.** [*arXiv preprint arXiv:2112.13495*](https://arxiv.org/pdf/2112.13495).

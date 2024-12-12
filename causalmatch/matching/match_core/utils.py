@@ -18,6 +18,7 @@ import scipy.stats as stats
 import scipy as scipy
 import warnings
 from distutils.version import LooseVersion, StrictVersion
+import random
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 def data_process_bc(match_obj,
@@ -389,5 +390,71 @@ def psm_trim_percent(match_obj,
 
     df_post.reset_index(inplace=True, drop=True)
     return df_post
+
+
+def gen_test_data_mrd(n_shops = 5
+                      , n_users = 10
+                      , ate = 1.5
+                      , uflow = 0.2
+                      , sflow = 0.3):
+    shop_list = list(np.linspace(1, n_shops, num=n_shops).astype(int))
+    user_list = list(np.linspace(1, n_users, num=n_users).astype(int))
+
+    # 假设有一半的用户被抽样成为实验组用户，一般的商家被抽样成为实验组商家
+    shop_exp_list = random.sample(shop_list, int(n_shops / 2))
+    user_exp_list = random.sample(user_list, int(n_users / 2))
+
+    # 建关系对
+    df_raw = pd.DataFrame()
+
+    j_N = np.ones(n_users)
+    user_list_full = np.kron(j_N, shop_list).astype(int)
+    shop_list_full = np.repeat(user_list, n_shops, axis=0)
+
+    df_raw['shop_id'] = user_list_full
+    df_raw['user_id'] = shop_list_full
+
+    df_raw['treatment'] = 0
+    df_raw['treatment_u'] = 0
+    df_raw['treatment_s'] = 0
+
+    df_raw['treatment_s'].loc[(df_raw["shop_id"].isin(shop_exp_list))] = 1
+    df_raw['treatment_u'].loc[(df_raw["user_id"].isin(user_exp_list))] = 1
+    df_raw['treatment'].loc[(df_raw["shop_id"].isin(shop_exp_list)) & (df_raw["user_id"].isin(user_exp_list))] = 1
+
+    df_raw['error'] = np.random.normal(0, 0.1, df_raw.shape[0])
+
+    df_raw['status'] = 'unknown'
+    df_raw['status'].loc[((df_raw["user_id"].isin(user_exp_list)) & df_raw["shop_id"].isin(shop_exp_list))] = 't'
+    df_raw['status'].loc[((df_raw["user_id"].isin(user_exp_list)) & ~df_raw["shop_id"].isin(shop_exp_list))] = 'ib'
+    df_raw['status'].loc[(~(df_raw["user_id"].isin(user_exp_list)) & df_raw["shop_id"].isin(shop_exp_list))] = 'is'
+    df_raw['status'].loc[(~(df_raw["user_id"].isin(user_exp_list)) & ~df_raw["shop_id"].isin(shop_exp_list))] = 'c'
+
+    # 模拟一个实验结果变量，有treatment effect的
+    df_raw['y_clean'] = ate * df_raw['treatment'] + df_raw['error']
+    df_raw['y_overflow'] = ate * df_raw['treatment'] + uflow * (df_raw['treatment_u']) \
+                           + sflow * (df_raw['treatment_s']) + df_raw['error']
+
+    return df_raw
+
+
+# follow page 18 formulas
+def demean(y_t, n_users, n_shops) :
+    y_t_b_bar = y_t.sum(axis=1) / n_shops
+    y_t_s_bar = y_t.sum(axis=0) / n_users
+    y_t_bar_bar = y_t.sum() / n_shops / n_users
+
+    y_t_b_dot = y_t_b_bar - y_t_bar_bar
+    y_t_s_dot = y_t_s_bar - y_t_bar_bar
+    y_t_dot = y_t - np.tile(y_t_s_bar.reshape(1, y_t.shape[1]), (y_t.shape[0], 1)) \
+              - np.tile(y_t_b_bar.reshape(y_t.shape[0], 1), (1, y_t.shape[1])) \
+              + y_t_bar_bar
+
+    sigma_t_2b = 1 / (n_users - 1) * np.sum(y_t_b_dot * y_t_b_dot)
+    sigma_t_2s = 1 / (n_shops - 1) * np.sum(y_t_s_dot * y_t_s_dot)
+    sigma_t_bs = 1 / ((n_users - 1) * (n_shops - 1)) * np.sum(y_t_dot * y_t_dot)
+
+    return y_t_b_dot, y_t_s_dot, y_t_dot, sigma_t_2b, sigma_t_2s, sigma_t_bs
+
 
 

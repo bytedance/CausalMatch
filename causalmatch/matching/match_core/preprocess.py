@@ -45,6 +45,7 @@ def preprocess(match_obj) :
             match_obj.data[id] = match_obj.data[id]
 
     data = match_obj.data
+
     # 4. If ID is unique, if is float
     id_check = data.groupby(id)[id].nunique() > 1
     if len(id_check[id_check == True]) > 0 :
@@ -82,7 +83,6 @@ def preprocess(match_obj) :
     return
 
 def preprocess_psm(match_obj) :
-
     if (match_obj.caliper <= 0) or (match_obj.caliper > 1) :
         raise TypeError(
             'Caliper should be a number between [0,1]. If you want to keep all observation, please set caliper to 1.')
@@ -107,3 +107,49 @@ def preprocess_psm(match_obj) :
     match_obj.col_name_x_expand = col_name_x_expand
 
     return
+
+
+def preprocess_mrd(mrd_obj):
+    data = mrd_obj.data
+    idb = mrd_obj.idb
+    ids = mrd_obj.ids
+    tb = mrd_obj.tb
+    ts = mrd_obj.ts
+    y = mrd_obj.y
+
+    # 1.all variables are contained in dataframe
+    col_list = set(data.columns)
+    input_vars = [idb, ids, tb, ts, y]
+    for i in input_vars :
+        if i not in col_list :
+            raise TypeError('Variable {} is not in the input dataframe.'.format(i))
+
+    user_exp_list = data[data[tb] == 1][idb].value_counts().index.to_list()
+    shop_exp_list = data[data[ts] == 1][ids].value_counts().index.to_list()
+    n_users = data[idb].nunique()
+    n_shops = data[ids].nunique()
+
+    mrd_obj.user_exp_list = user_exp_list
+    mrd_obj.shop_exp_list = shop_exp_list
+    mrd_obj.n_users = n_users
+    mrd_obj.n_shops = n_shops
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

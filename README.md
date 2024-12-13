@@ -16,7 +16,8 @@ Our toolkit possess the following features:
 * Maintain flexibility in modeling the propensity score model (via various machine learning classification models), while preserving the causal interpretation of the learned model and often offering valid confidence intervals
 * Use a unified API
 * Build on standard Python packages for Machine Learning and Data Analysis
-[//]: # (For information on use cases and background material on causal inference and heterogeneous treatment effects see our webpage at [webpage here])
+
+# (For information on use cases and background material on causal inference and heterogeneous treatment effects see our webpage at [webpage here])
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>

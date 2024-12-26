@@ -212,7 +212,7 @@ def gen_test_data(n=5000, c_ratio=0.1) :
     k_discrete = 3
     n_obs = n
 
-    col_name_x = ['c_1', 'c_2', 'c_3', 'd_1', 'gender', 'd_3']
+    # col_name_x = ['c_1', 'c_2', 'c_3', 'd_1', 'gender', 'd_3']
     col_name_list = ['c_1', 'c_2', 'c_3', 'd_1', 'gender', 'd_3', 'treatment']
     col_name_y = ['y']
 

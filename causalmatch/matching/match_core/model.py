@@ -19,7 +19,7 @@ from typing import List, Dict
 from causalmatch.matching.match_core.psm import psm
 from causalmatch.matching.match_core.cem import calculate_weight, bin_cut, sample_k2k
 from causalmatch.matching.match_core.preprocess import preprocess,preprocess_psm
-from causalmatch.matching.match_core.utils import data_process_bc, data_process_ate, balance_check_x, gen_test_data, psm_trim_caliper, psm_trim_percent
+from causalmatch.matching.match_core.utils import data_process_bc, data_process_ate, balance_check_x, gen_test_data, gen_test_data_mrd, psm_trim_caliper, psm_trim_percent
 from causalmatch.matching.match_core.ate import ate
 from causalmatch.matching.match_core.meta_learner import s_learner_linear
 from causalmatch.matching.match_core.robust_check import sensitivity_test, placebo_treatment_estimate

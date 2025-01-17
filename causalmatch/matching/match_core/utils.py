@@ -396,13 +396,17 @@ def gen_test_data_mrd(n_shops = 5
                       , n_users = 10
                       , ate = 1.5
                       , uflow = 0.2
-                      , sflow = 0.3):
+                      , sflow = 0.3
+                      , fraction_bt = 0.5
+                      , fraction_st = 0.5
+                      , seed = 123456):
     shop_list = list(np.linspace(1, n_shops, num=n_shops).astype(int))
     user_list = list(np.linspace(1, n_users, num=n_users).astype(int))
 
     # 假设有一半的用户被抽样成为实验组用户，一般的商家被抽样成为实验组商家
-    shop_exp_list = random.sample(shop_list, int(n_shops / 2))
-    user_exp_list = random.sample(user_list, int(n_users / 2))
+    random.seed(seed)
+    shop_exp_list = random.sample(shop_list, int(n_shops * fraction_st))
+    user_exp_list = random.sample(user_list, int(n_users * fraction_bt))
 
     # 建关系对
     df_raw = pd.DataFrame()
@@ -422,6 +426,7 @@ def gen_test_data_mrd(n_shops = 5
     df_raw['treatment_u'].loc[(df_raw["user_id"].isin(user_exp_list))] = 1
     df_raw['treatment'].loc[(df_raw["shop_id"].isin(shop_exp_list)) & (df_raw["user_id"].isin(user_exp_list))] = 1
 
+    np.random.seed(seed)
     df_raw['error'] = np.random.normal(0, 0.1, df_raw.shape[0])
 
     df_raw['status'] = 'unknown'
@@ -439,22 +444,45 @@ def gen_test_data_mrd(n_shops = 5
 
 
 # follow page 18 formulas
-def demean(y_t, n_users, n_shops) :
-    y_t_b_bar = y_t.sum(axis=1) / n_shops
-    y_t_s_bar = y_t.sum(axis=0) / n_users
-    y_t_bar_bar = y_t.sum() / n_shops / n_users
+def demean(y_t
+           , n_pairs
+           , n_users
+           , n_shops
+           , n_users_t
+           , n_shops_t
+           , type='t') :
 
-    y_t_b_dot = y_t_b_bar - y_t_bar_bar
-    y_t_s_dot = y_t_s_bar - y_t_bar_bar
-    y_t_dot = y_t - np.tile(y_t_s_bar.reshape(1, y_t.shape[1]), (y_t.shape[0], 1)) \
-              - np.tile(y_t_b_bar.reshape(y_t.shape[0], 1), (1, y_t.shape[1])) \
-              + y_t_bar_bar
+   if type == 't':
+       n_shops_local = n_shops_t
+       n_users_local = n_users_t
+   elif type == 'ib':
+       n_shops_local = n_shops - n_shops_t
+       n_users_local = n_users_t
+   elif type == 'is':
+       n_shops_local = n_shops_t
+       n_users_local = n_users - n_users_t
+   elif type == 'c':
+       n_shops_local = n_shops - n_shops_t
+       n_users_local = n_users - n_users_t
+   else:
+       n_shops_local = 0
+       n_users_local = 0
 
-    sigma_t_2b = 1 / (n_users - 1) * np.sum(y_t_b_dot * y_t_b_dot)
-    sigma_t_2s = 1 / (n_shops - 1) * np.sum(y_t_s_dot * y_t_s_dot)
-    sigma_t_bs = 1 / ((n_users - 1) * (n_shops - 1)) * np.sum(y_t_dot * y_t_dot)
+   y_t_b_bar = y_t.sum(axis=1) / n_shops_local
+   y_t_s_bar = y_t.sum(axis=0) / n_users_local
+   y_t_bar_bar = y_t.sum() / n_pairs
 
-    return y_t_b_dot, y_t_s_dot, y_t_dot, sigma_t_2b, sigma_t_2s, sigma_t_bs
+   y_t_b_dot = y_t_b_bar - y_t_bar_bar
+   y_t_s_dot = y_t_s_bar - y_t_bar_bar
+   y_t_dot = y_t - np.tile(y_t_s_bar.reshape(1, y_t.shape[1]), (y_t.shape[0], 1)) \
+          - np.tile(y_t_b_bar.reshape(y_t.shape[0], 1), (1, y_t.shape[1])) \
+          + y_t_bar_bar
+
+   sigma_t_2b = 1 / (n_users - 1) * np.sum(y_t_b_dot * y_t_b_dot)
+   sigma_t_2s = 1 / (n_shops - 1) * np.sum(y_t_s_dot * y_t_s_dot)
+   sigma_t_bs = 1 / n_pairs * np.sum(y_t_dot * y_t_dot)
+
+   return y_t_b_dot, y_t_s_dot, y_t_dot, sigma_t_2b, sigma_t_2s, sigma_t_bs
 
 
 

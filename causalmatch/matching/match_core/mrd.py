@@ -16,7 +16,7 @@ import pandas as pd
 import warnings
 from causalmatch.matching.match_core.preprocess import preprocess_mrd
 from causalmatch.matching.match_core.utils import gen_test_data_mrd
-from causalmatch.matching.match_core.utils_mrd import mrd_estimation
+from causalmatch.matching.match_core.utils_mrd import mrd_estimation, mrd_estimation2
 warnings.simplefilter(action='ignore', category=FutureWarning)
 class mrd:
     def __init__(self,
@@ -122,19 +122,25 @@ class mrd:
         df_res = mrd_estimation(self)
         return df_res
 
+    def ate2(self):
+        df_res = mrd_estimation2(self)
+        return df_res
+
+
 
 if __name__ == "__main__" :
-    df_raw = gen_test_data_mrd(n_shops=5
-                               , n_users=10
-                               , ate=1.5
-                               , uflow=0.2
-                               , sflow=0.3)
-
+    df_raw = gen_test_data_mrd(n_shops=10
+                               , n_users=100
+                               , ate=1
+                               , uflow=0.05
+                               , sflow=0.05)
     mrd_obj = mrd(data=df_raw,
                   idb='user_id',
                   ids='shop_id',
                   tb='treatment_u',
                   ts='treatment_s',
                   y='y_overflow')
+
+    mrd_obj.ate()
 
 

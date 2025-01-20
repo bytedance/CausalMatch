@@ -194,10 +194,10 @@ def mrd_estimation2(mrd_obj) :
     n_shops_c = n_shops - n_shops_t
 
     n_pairs = (n_users - 1) * (n_shops - 1)
-    n_pairs_ib = df[df['status'] == 'ib'].shape[0]
-    n_pairs_is = df[df['status'] == 'is'].shape[0]
-    n_pairs_t = df[df['status'] == 't'].shape[0]
-    n_pairs_c = df[df['status'] == 'c'].shape[0]
+    # n_pairs_ib = df[df['status'] == 'ib'].shape[0]
+    # n_pairs_is = df[df['status'] == 'is'].shape[0]
+    # n_pairs_t = df[df['status'] == 't'].shape[0]
+    # n_pairs_c = df[df['status'] == 'c'].shape[0]
 
     user_list = df[idb].value_counts().index.to_list()
     shop_list = df[ids].value_counts().index.to_list()
@@ -409,9 +409,13 @@ def mrd_estimation2(mrd_obj) :
     v_b_spillover = v_ib + v_c - 2 * c_ib_c
     v_tau = v_t + v_c - 2 * c_t_c
 
-    dof   = df[((df['treatment_u'] ==1) & (df['treatment_s'] == 1))|((df['treatment_u'] ==0) & (df['treatment_s'] == 0))].shape[0]
-    dof_b = df[((df['treatment_u'] ==1) & (df['treatment_s'] == 0))|((df['treatment_u'] ==0) & (df['treatment_s'] == 0))].shape[0]
-    dof_s = df[((df['treatment_u'] ==0) & (df['treatment_s'] == 1))|((df['treatment_u'] ==0) & (df['treatment_s'] == 0))].shape[0]
+    # dof   = df[((df['treatment_u'] ==1) & (df['treatment_s'] == 1))|((df['treatment_u'] ==0) & (df['treatment_s'] == 0))].shape[0]
+    # dof_b = df[((df['treatment_u'] ==1) & (df['treatment_s'] == 0))|((df['treatment_u'] ==0) & (df['treatment_s'] == 0))].shape[0]
+    # dof_s = df[((df['treatment_u'] ==0) & (df['treatment_s'] == 1))|((df['treatment_u'] ==0) & (df['treatment_s'] == 0))].shape[0]
+
+    dof = (n_shops_t-1) * (n_users_t-1) + (n_shops_c-1) * (n_users_c-1)
+    dof_b = (n_shops_c-1) * (n_users_t-1) + (n_shops_c-1) * (n_users_c-1)
+    dof_s = (n_shops_t-1) * (n_users_c-1) + (n_shops_c-1) * (n_users_c-1)
 
     t_stat_direct = tdirect / np.sqrt(v_tau_direct)
     t_stat_tau = t / np.sqrt(v_tau )

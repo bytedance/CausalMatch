@@ -374,10 +374,10 @@ def mrd_estimation2(mrd_obj) :
     j_t = len(shop_exp_list)
 
 
-    v_t = i_c / (i_t * i) * sigma_t_2b_ + j_c / (j_t * j) * sigma_t_2s_ + i_c / (i_t * i) * j_c / (j_t * j) * sigma_t_bs_
+    v_t  = i_c / (i_t * i) * sigma_t_2b_  + j_c / (j_t * j) * sigma_t_2s_  + i_c / (i_t * i) * j_c / (j_t * j) * sigma_t_bs_
     v_ib = i_c / (i_t * i) * sigma_ib_2b_ + j_c / (j_t * j) * sigma_ib_2s_ + i_c / (i_t * i) * j_c / (j_t * j) * sigma_ib_bs_
     v_is = i_c / (i_t * i) * sigma_is_2b_ + j_c / (j_t * j) * sigma_is_2s_ + i_c / (i_t * i) * j_c / (j_t * j) * sigma_is_bs_
-    v_c = i_c / (i_t * i) * sigma_c_2b_ + j_c / (j_t * j) * sigma_c_2s_ + i_c / (i_t * i) * j_c / (j_t * j) * sigma_c_bs_
+    v_c  = i_c / (i_t * i) * sigma_c_2b_  + j_c / (j_t * j) * sigma_c_2s_  + i_c / (i_t * i) * j_c / (j_t * j) * sigma_c_bs_
 
     # Lemma A.5
     c_t_ib = i_c / (2 * i_t * i) * (sigma_t_2b_ + sigma_ib_2b_ - sigma_tib_2b_) \

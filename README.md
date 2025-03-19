@@ -35,10 +35,13 @@ Our toolkit possess the following features:
 If you'd like to contribute to this project, please contact xiaoyuzhou@bytedance.com. 
 If you have any questions, feel free to raise them in the issues section.
 
-**December 10, 2024:** Release v0.0.4, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.4)
+**March 19, 2025:** Release v0.0.5, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.5)
+
 
 
 <details><summary>Previous releases</summary>
+
+**December 10, 2024:** Release v0.0.4, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.4)
 
 **August 20, 2024:** Release v0.0.2, see release notes [here](https://github.com/bytedance/CausalMatch/releases/tag/v0.0.2)
 
@@ -52,7 +55,7 @@ If you have any questions, feel free to raise them in the issues section.
 
 Install the latest release from [PyPI]:
 ```
-pip install causalmatch==0.0.4
+pip install causalmatch==0.0.5
 ```
 
 

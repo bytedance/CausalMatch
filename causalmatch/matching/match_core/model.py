@@ -113,6 +113,7 @@ class matching :
         self.df_out_final_trim_caliper = None
         self.df_out_final_trim_percentage = None
         self.df_out_final_post_trim = None
+        self.df_out_final_post_trim_pair = None
         self.n_bins = None
         self.break_points = None
         self.cluster_criteria = None
@@ -261,6 +262,12 @@ class matching :
             df_out_final_trim_percentage.drop_duplicates(subset=[self.id], inplace=True, ignore_index=True)
 
         df_out_final_post_trim = df_out_final_trim_percentage.copy()
+        # Add paired version of df_out_final_post_trim
+        try:
+            valid_ids = df_out_final_post_trim[df_out_final_post_trim.treatment==1]['user_id']
+            df_out_final_post_trim_pair = df_out_final[df_out_final['user_id_treat'].isin(valid_ids)]
+        except:
+            df_out_final_post_trim_pair = pd.DataFrame()
 
         self.data_ps = data_ps
         self.data_out_treat = data_out
@@ -271,7 +278,7 @@ class matching :
         self.df_out_final_trim_caliper = df_out_final_trim_caliper
         self.df_out_final_trim_percentage = df_out_final_trim_percentage
         self.col_name_x_expand = self.col_name_x_expand
-
+        self.df_out_final_post_trim_pair = df_out_final_post_trim_pair
 
 
     def cem(self,
@@ -834,4 +841,3 @@ if __name__ == "__main__" :
     print(match_obj_cem.ate())
 
     linear_hte = match_obj_cem.hte()
-

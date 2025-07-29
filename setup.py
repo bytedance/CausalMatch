@@ -5,7 +5,14 @@ def readme():
 
 dependencies = [
     'pandas>=1.3.4, <=1.3.5',
-    'numpy>=1.3.0, <=1.26.4'
+    'numpy>=1.3.0, <=1.26.4',
+    'scikit-learn',
+    'tqdm',
+    'statsmodels',
+    'lightgbm',
+    'xgboost',
+    'matplotlib',
+    'FixedEffectModel'
 ]
 
 setup(

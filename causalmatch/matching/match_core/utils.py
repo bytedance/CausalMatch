@@ -335,6 +335,100 @@ def gen_test_data_panel(N, T, beta, ate, exp_date, unbalance=False) :
 
     return df2
 
+def gen_test_data_panel_with_selection(N, T, beta, ate, exp_date, unbalance=False):
+    """
+    Modified version with selection bias and heterogeneous effects
+    :N: number of cross sections
+    :T: number of time periods
+    :beta: true beta
+    :ate: true ate (base effect, will vary by covariates)
+    :exp_date: experiment date
+    """
+    if exp_date > T:
+        raise NameError('exp_date must be smaller than the number of time periods')
+    
+    if len(beta) <= 1:
+        raise NameError('length of array beta must be greater than or equal to 2')
+    
+    k = len(beta)
+    id_list = np.linspace(1, N, num=N)
+    time_list = np.linspace(1, T, num=T)
+    
+    np.random.seed(0)
+    error = np.random.normal(0, 1, N * T)
+    
+    c_i = np.random.normal(0, 1, N)
+    a_t = np.random.normal(0, 1, T)
+    x1 = np.random.normal(0, 2, N * T * (k - 1))
+    x1.shape = (N * T, (k - 1))
+    const = np.ones(N * T)
+    const.shape = (N * T, 1)
+    x = np.concatenate((const, x1), axis=1)
+    
+    j_N = np.ones(N)
+    time_full = np.kron(j_N, time_list)
+    a_t_full = np.kron(j_N, a_t)
+    id_full = np.repeat(id_list, T, axis=0)
+    c_i_full = np.repeat(c_i, T, axis=0)
+    
+    # MODIFICATION 1: Treatment assignment based on covariates (selection bias)
+    # Calculate propensity scores based on unit-level averages of covariates
+    x_by_id = pd.DataFrame({
+        'id': id_full,
+        'x1': x[:, 1],
+        'x2': x[:, 2],
+        'x3': x[:, 3]
+    }).groupby('id').mean()
+    
+    # Strong selection into treatment based on covariates
+    propensity = 1 / (1 + np.exp(-1.8 * x_by_id['x1'] - 1.6 * x_by_id['x2'] - 1.4 * x_by_id['x3']))
+    treatment_status = np.random.binomial(1, propensity)
+    # Get IDs where treatment_status is 1
+    treatment_group = x_by_id.index[treatment_status == 1].values
+    
+    df = pd.DataFrame(data=x)
+    for name in df.columns:
+        new_name = "x_" + str(name)
+        df = df.rename(columns={name: new_name})
+    
+    beta = np.reshape(beta, (-1, k))
+    df['xb'] = np.dot(x, beta.T)
+    
+    df['id'] = id_full
+    df['time'] = time_full
+    df['c_i'] = c_i_full
+    df['a_t'] = a_t_full
+    df['error'] = error
+    
+    df['post'] = (df['time'] >= exp_date) * 1
+    df['treatment'] = df['id'].apply(lambda x: 1 if x in treatment_group else 0)
+    
+    # MODIFICATION 2: Heterogeneous treatment effects based on covariates
+    # Treatment effect varies with x1 and x2
+    heterogeneous_ate = ate[0] + 1.5 * df['x_1'] + 1.3 * df['x_2']
+    
+    
+    df['y'] = (df['xb'] + 
+               heterogeneous_ate * df['treatment'] * df['post'] + 
+               df['c_i'] + 
+               df['a_t'] + 
+               df['error'])
+    
+    df2 = df.copy()
+    for tt in time_list:
+        if tt < 10:
+            time_str = "date_0" + str(int(tt))
+        else:
+            time_str = "date_" + str(int(tt))
+        df2 = df2.replace({'time': tt}, time_str)
+    
+    if unbalance:
+        np.random.seed(10)
+        drop_indices = np.random.choice(df.index, N - 1, replace=False)
+        df2 = df2.drop(drop_indices)
+    
+    return df2
+
 
 def psm_trim_caliper(match_obj,
                      df_pre,

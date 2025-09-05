@@ -34,14 +34,14 @@ class mrd:
         ----------
         :param data: Pandas dataframe, should include feature columns and treatment column.
         :param idb: str, default none.
-            Buyer id column, here refers to row-id in equation (3.1).
+            Buyer id column name, here refers to row-id in equation (3.1).
         :param ids: str, default none.
-            Seller id column, here refers to column-id in equation (3.1).
+            Seller id column name, here refers to column-id in equation (3.1).
             idb*ids pair should be pairwise unique.
         :param tb: str, must input.
-            Treatment status for id1. Only support dummy treatment, i.e 0-1 binary treatment.
+            Treatment status for idb. Only support dummy treatment, i.e 0-1 binary treatment.
         :param ts: str, must input.
-            Treatment status for id2. Only support dummy treatment, i.e 0-1 binary treatment.
+            Treatment status for ids. Only support dummy treatment, i.e 0-1 binary treatment.
         :param y: str, must input
             Dependent variable of paired result. For example, if id1 is user id, id2 is shop id, each row of y can be the
             payment amount that one user pay one shop.

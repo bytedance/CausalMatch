@@ -497,12 +497,12 @@ def gen_test_data_mrd(n_shops = 5
     shop_list = list(np.linspace(1, n_shops, num=n_shops).astype(int))
     user_list = list(np.linspace(1, n_users, num=n_users).astype(int))
 
-    # 假设有一半的用户被抽样成为实验组用户，一般的商家被抽样成为实验组商家
+    # some people are assigned to exp or base group
     random.seed(seed)
     shop_exp_list = random.sample(shop_list, int(n_shops * fraction_st))
     user_exp_list = random.sample(user_list, int(n_users * fraction_bt))
 
-    # 建关系对
+    # build pairs
     df_raw = pd.DataFrame()
 
     j_N = np.ones(n_users)

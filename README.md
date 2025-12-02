@@ -74,7 +74,6 @@ from sklearn.ensemble import GradientBoostingClassifier
 df = gen_test_data(n = 10000, c_ratio=0.5)
 df.head()
 
-
 X = ['c_1', 'c_2', 'c_3', 'd_1', 'gender']
 y = ['y', 'y2']
 T = 'treatment' 

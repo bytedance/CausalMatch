@@ -4,14 +4,14 @@ def readme():
         return f.read()
 
 dependencies = [
-    'pandas>=1.3.4, <=1.3.5',
-    'numpy>=1.3.0, <=1.26.4',
-    'scikit-learn>=1.4.0',
-    'tqdm>=4.66.2',
-    'statsmodels>=0.14.1',
-    'lightgbm>=4.3.0',
-    'xgboost>=2.0.3',
-    'matplotlib>=3.8.3',
+    'pandas>=1.1.1',
+    'numpy>=1.3.0',
+    'scikit-learn>=0.24.0',
+    'tqdm>=4.40.0',
+    'statsmodels>=0.10.2',
+    'lightgbm>=3.0.0',
+    'xgboost>=1.0.0',
+    'matplotlib>=3.3.0',
     'FixedEffectModel>=0.0.5'
 ]
 
